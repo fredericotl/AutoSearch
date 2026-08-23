@@ -1,0 +1,16 @@
+from app.db.session import Base
+from sqlalchemy import Column, Integer, String, ForeignKey, func, DateTime, Index
+
+class Detection(Base):
+    __tablename__ = 'detections'
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete= "SET NULL"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    criteria = Column(String,nullable=False)
+    price = Column(Integer, nullable=False)
+    detected_at = Column(DateTime, server_default=func.now(), nullable=False)
+    sent_at = Column(DateTime, nullable=True)
+    __table_args__ = (
+        Index('ix_detections_sent_at', 'sent_at'),
+    )

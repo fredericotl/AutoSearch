@@ -1,0 +1,52 @@
+from datetime import timedelta, datetime, timezone
+from fastapi import Depends,HTTPException
+from typing import Annotated
+from starlette import status
+from passlib.context import  CryptContext
+from fastapi.security import OAuth2PasswordBearer
+from jose import  jwt, JWTError
+from app.models.user import User
+from sqlalchemy.orm import Session
+from app.core.config import settings
+
+
+SECRET_KEY = settings.secret_key
+ALGORITHM = "HS256"
+
+
+bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated= "auto")
+oauth2_bearer = OAuth2PasswordBearer(tokenUrl="auth/token")
+
+def is_password_equal(password, hashed_password):
+    return bcrypt_context.verify(password, hashed_password)
+
+def hash_password(password):
+    return bcrypt_context.hash(password)
+
+def authenticate_user(username: str, password: str, db: Session):
+    user = db.query(User).filter(User.username== username).first()
+    if not user:
+        return False
+    if not is_password_equal(password, user.hashed_password):
+        return False
+    return user
+
+def create_access_token(user: User, expires_delta: timedelta):
+    encode = {"sub": user.username, "id": user.id, "role": user.role}
+    expires = datetime.now(timezone.utc) + expires_delta
+    encode["exp"] = expires
+    return jwt.encode(encode, SECRET_KEY, algorithm=ALGORITHM)
+
+#TODO diferenciar erro de token expirado
+async def get_current_user(token: Annotated[str, Depends(oauth2_bearer)]):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        user_id: int = payload.get("id")
+        role: str = payload.get("role")
+        if username is None or user_id is None:
+            raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail= "Authentication Failed")
+        return {"username": username, "id": user_id, "role": role}
+    except JWTError:
+        raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail= "Authentication Failed")
+

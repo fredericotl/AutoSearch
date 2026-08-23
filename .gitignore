@@ -1,0 +1,13 @@
+# Segredos
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Banco local
+*.db
+
+
+.idea/
