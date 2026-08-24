@@ -55,7 +55,7 @@ All dependencies are pinned in `requirements.txt`.
 ### Setup
 
 ```bash
-git clone <repository-url>
+git clone <https://github.com/fredericotl/AutoSearch.git>
 cd autosearch
 
 python -m venv .venv
