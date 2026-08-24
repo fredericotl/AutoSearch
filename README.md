@@ -55,8 +55,8 @@ All dependencies are pinned in `requirements.txt`.
 ### Setup
 
 ```bash
-git clone <https://github.com/fredericotl/AutoSearch.git>
-cd autosearch
+git clone https://github.com/fredericotl/AutoSearch.git
+cd AutoSearch
 
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\\Scripts\\activate

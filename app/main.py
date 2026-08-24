@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.api import auth, users, product
-from app.workers import ScraperTask, NotifierTask, TaskScheduler
+from app.workers import TasksRound, TaskScheduler
 import app.models
 from app.db.session import Base, engine
 
@@ -10,17 +10,9 @@ HOUR = 3
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
-    scraper = ScraperTask()
-    notifier = NotifierTask()
-
-    def daily_round():
-        try:
-            scraper.run()
-        finally:
-            notifier.run()
-
+    round = TasksRound()
     scheduler = TaskScheduler()
-    scheduler.add_daily(daily_round,HOUR)
+    scheduler.add_daily(round.run,HOUR)
     scheduler.start()
     yield
     scheduler.stop()
