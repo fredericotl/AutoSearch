@@ -1,9 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.api import auth, users, product
-from app.workers.scraper_task import ScraperTask
-from app.workers.notifier_task import NotifierTask
-from app.workers.scheduler import TaskScheduler
+from app.workers import ScraperTask, NotifierTask, TaskScheduler
 import app.models
 from app.db.session import Base, engine
 

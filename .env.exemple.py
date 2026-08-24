@@ -1,0 +1,9 @@
+# Database
+SQLALCHEMY_DATABASE_URL="sqlite:///./autosearch.db"
+
+# Auth
+SECRET_KEY="change-me"
+
+# Email — Gmail app password, exactly 16 characters
+SENDER_EMAIL="your@email.com"
+SENDER_PASSWORD="xxxxxxxxxxxxxxxx"

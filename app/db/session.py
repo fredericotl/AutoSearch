@@ -2,7 +2,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import declarative_base
 from app.core.config import settings
-#TODO enviar para env para segurança
+
+
 SQLALCHEMY_DATABASE_URL = settings.sqlalchemy_database_url
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
