@@ -15,7 +15,7 @@ ScraperTask     fetch → parse → write to price_history → evaluate criterio
 NotifierTask    read pending detections → group by recipient → send → mark as sent
 ```
 
-The tasks do not reference each other. The `detections` table is their only shared state, and `main.py` defines their order.
+The tasks do not reference each other. The `detections` table is their only shared state, and `TasksRound` defines their order. The round has two entry points: `main.py` schedules it daily, and `workers/cli.py` runs it on demand.
 
 ## Codemap
 
@@ -54,11 +54,14 @@ app/
 │   └── session.py
 ├── core/             # Configuration and cross-cutting concerns
 │   ├── config.py     # Settings (pydantic-settings)
+│   ├── logging_setup.py   # setup_logging() — file handler under logs/, level from Settings
 │   ├── security.py
 │   └── exceptions.py  # domain exceptions, grouped into two families
 ├── workers/          # Background tasks
 │   ├── scraper_task.py    # ScraperTask — scraping + detection
 │   ├── notifier_task.py   # NotifierTask — delivery of pending detections
+│   ├── tasks_round.py     # TasksRound — chains both tasks into one round
+│   ├── cli.py             # manual entry point: python -m app.workers.cli
 │   └── scheduler.py       # TaskScheduler — scheduling wrapper (APScheduler)
 └── main.py           # create_all, composition of the daily round, lifespan
 ```
@@ -75,7 +78,7 @@ app/
 | `notifier/` | Compose and deliver a message over an external channel | Receives a ready `NotifierInput`; it does not query the database, choose recipients, or record errors. |
 | `db/` | Engine, session, declarative `Base`, the `get_db` dependency | Isolated infrastructure. Replacing SQLite with Postgres should require minimal changes elsewhere. |
 | `workers/` | Background work that must not block HTTP requests | Temporal decoupling. Reuses `services/` instead of duplicating logic. This layer decides whether a failure affects one item or the whole round. |
-| `core/` | Configuration, security, and the domain exception vocabulary | Cross-cutting concerns consumed by every layer and dependent on none. |
+| `core/` | Configuration, security, logging setup, and the domain exception vocabulary | Cross-cutting concerns consumed by every layer and dependent on none. Modules only emit (`getLogger(__name__)`); the entry point configures. |
 | `main.py` | Create the app, register routers, create the schema, compose the round | Composition only, including task ordering. |
 
 Three conventions that cut across the table:

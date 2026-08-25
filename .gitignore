@@ -9,5 +9,8 @@ __pycache__/
 # Banco local
 *.db
 
+# logs
+logs/
 
 .idea/
+
