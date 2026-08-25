@@ -23,7 +23,7 @@ class TasksRound:
         finally:
             self.notifier.run()
             duration = time.perf_counter() - start
-            logger.info("round ended after %.2fs", duration)
+            logger.info("round finished after %.2fs", duration)
 
 
 

@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from app.core.clock import now
 from app.models import Detection, Product, User
 from app.schemas import DetectionNotifyByUser, ProductToNotify, NotifierInput
 
@@ -40,7 +40,7 @@ def mark_detections_sent(db:Session, list_detections: list[DetectionNotifyByUser
         return
     list_id = [ d.detection_id for d in list_detections]
     (db.query(Detection).filter(Detection.sent_at.is_(None),Detection.id.in_(list_id))
-                  .update({Detection.sent_at: func.now()}, synchronize_session=False))
+                  .update({Detection.sent_at: now()}, synchronize_session=False))
 
 def remove_detections(db:Session, product_id: int):
     db.query(Detection).filter(Detection.product_id == product_id).delete()

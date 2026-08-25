@@ -11,7 +11,8 @@ class Settings(BaseSettings):
     sender_password: str = Field(min_length=16, max_length=16)
     secret_key: str
     sqlalchemy_database_url: str
-    log_level: str
+    log_level: str = Field(default="INFO")
+    time_zone: str = Field(default="America/Sao_Paulo")
 
 settings = Settings()
 

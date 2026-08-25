@@ -143,4 +143,3 @@ The project runs end to end from a clean clone. The limitations below are intent
 **Known gaps**
 
 - No automated tests yet.
-- The daily job has not been observed running unattended, and there is no logging for it yet.

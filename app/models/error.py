@@ -1,9 +1,6 @@
 from app.db.session import Base
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, func, Index
-
-
-
-
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, Index
+from app.core.clock import now
 
 class Error(Base):
     __tablename__ = 'errors'
@@ -14,7 +11,7 @@ class Error(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     error_type = Column(String, nullable=False)
     message = Column(String, nullable=True)
-    captured_at = Column(DateTime, server_default=func.now(), nullable=False)
+    captured_at = Column(DateTime, default=now, nullable=False)
     is_fixed = Column(Boolean, default=False, nullable=False)
 
     __table_args__ = (
