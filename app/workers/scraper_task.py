@@ -1,5 +1,4 @@
-from app.services import (get_all_products, save_product_price_scheduler, save_error, get_price_window_stats,
-                          evaluate_price_criteria, create_detections)
+from app.services import (get_all_products, save_product_price_scheduler, save_error,create_detections, PriceWindow)
 from app.db.session import SessionLocal
 from app.schemas import CreateError, ProductToNotify, ProductToScrape, ErrorSource
 from time import sleep
@@ -34,9 +33,9 @@ class ScraperTask:
         for product in all_products:
             db = SessionLocal()
             try:
-                price_stats = get_price_window_stats(db, product.id)
+                window = PriceWindow.from_history(db,product.id)
                 price_today = save_product_price_scheduler(db, product)
-                criteria = evaluate_price_criteria(price_today, price_stats)
+                criteria = window.evaluate_price_criteria(price_today)
                 if criteria is not None:
                     product_to_notify = ProductToNotify(
                         id= product.id,

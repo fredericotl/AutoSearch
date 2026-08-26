@@ -22,7 +22,7 @@ class NotifierTask:
             try:
                 notifier = EmailNotifier(notification)
                 notifier.send_message()
-                mark_detections_sent(db, notification.itens)
+                mark_detections_sent(db, notification.items)
                 db.commit()
             except (RecipientRefused, EmptyNotification) as e:
                 error = CreateError(source=ErrorSource.NOTIFIER,

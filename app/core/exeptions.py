@@ -47,6 +47,6 @@ class RecipientRefused(NotifierFail):
     pass
 
 class EmptyNotification(NotifierFail):
-    """Notifier with 0 itens."""
+    """Notifier with 0 items."""
     pass
 

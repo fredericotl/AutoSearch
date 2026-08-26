@@ -1,13 +1,10 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models import PriceHistory
-from app.schemas import ProductPriceResponse, PriceWindowStats, Criteria, ProductToScrape
-from datetime import date, timedelta, datetime, time
+from app.schemas import ProductPriceResponse, ProductToScrape
+from datetime import date
 from app.scraper import get_scraper_for_link
 from app.core.exeptions import PriceNotFound
-
-WINDOW_OF_DAYS = 365
-MINIMUM_DATA_COUNT = 7
 
 #TODO resolve possiveis redundancias de busca de preços ou coisas do tipo
 def _find_product_price_by_date(db: Session, product_id: int, check_date: date):
@@ -47,27 +44,4 @@ def save_product_price_scheduler(db: Session, product_model: ProductToScrape) ->
     if result.status == "no_price_found":
         raise PriceNotFound("Price Not Found")
     return result.price
-
-def get_price_window_stats(db: Session, product_id: int, window: int = WINDOW_OF_DAYS)-> PriceWindowStats:
-    today = datetime.combine(date.today(), time.min)
-    start = today - timedelta(days=window)
-    stats = db.query(
-        func.min(PriceHistory.price).label("minimum"), func.count(PriceHistory.price).label("count")
-    ).filter(PriceHistory.product_id == product_id,
-             PriceHistory.captured_at >= start,
-             PriceHistory.captured_at < today).one()
-    return PriceWindowStats(minimum=stats.minimum,
-                            count=stats.count)
-
-#TODO Add outros critérios aqui
-def evaluate_price_criteria(price_today: int, price_stats: PriceWindowStats,
-                            minimum_data_count: int = MINIMUM_DATA_COUNT)-> Criteria | None:
-    if price_stats.minimum is None:
-        return None
-    if (price_stats.count >= minimum_data_count) and price_today < price_stats.minimum:
-        return Criteria.LOWEST_PRICE
-    return None
-
-
-
 

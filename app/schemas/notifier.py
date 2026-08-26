@@ -1,11 +1,7 @@
 from pydantic import BaseModel,  HttpUrl, EmailStr, Field
-from enum import Enum
+from app.schemas.price import Criteria
 from app.schemas.user import ViewerRef
 
-class Criteria(str, Enum):
-    LOWEST_PRICE = "lowest_price"
-    # THRESHOLD = "threshold" #TODO avaliar possível implementação
-    # ANOMALY = "anomaly" #TODO construir lógica apos significância estatística pós MVP
 
 class DetectionNotifyByUser(BaseModel):
     detection_id: int
@@ -18,7 +14,7 @@ class NotifierInput(BaseModel):
     user_id: int
     user_email: EmailStr
     user_name: str = Field(max_length=100)
-    itens: list[DetectionNotifyByUser]
+    items: list[DetectionNotifyByUser]
 
 class NotifierSender(BaseModel):
     sender_email: EmailStr
@@ -32,7 +28,3 @@ class ProductToNotify(BaseModel):
     viewers : list[ViewerRef]
     criteria: Criteria
 
-#TODO definir resposta para outros critérios
-class PriceWindowStats(BaseModel):
-    minimum: int | None
-    count: int

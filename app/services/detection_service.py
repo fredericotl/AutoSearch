@@ -31,8 +31,8 @@ def get_pendent_detections_by_user(db: Session)-> list[NotifierInput]:
                                         )
         grouped.setdefault((detection.user_id, detection.email,detection.first_name), []).append(item)
     list_notifiers = []
-    for (user_id, email, name), itens in grouped.items():
-        list_notifiers.append(NotifierInput(user_id=user_id ,user_email=email, user_name=name, itens=itens,))
+    for (user_id, email, name), items in grouped.items():
+        list_notifiers.append(NotifierInput(user_id=user_id, user_email=email, user_name=name, items=items, ))
     return list_notifiers
 
 def mark_detections_sent(db:Session, list_detections: list[DetectionNotifyByUser]):
