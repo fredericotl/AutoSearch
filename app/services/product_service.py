@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session,selectinload
 from app.models import Product, User
 from app.services.detection_service import remove_detections
 from app.schemas import CreateProduct
-from app.core.exeptions import ProductNotFound, UserNotFollow
+from app.core.exceptions import ProductNotFound, UserNotFollow
 
 def get_watched_products(db: Session, user_id: int):
     user = db.get(User, user_id)

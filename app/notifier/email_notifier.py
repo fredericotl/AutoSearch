@@ -3,7 +3,7 @@ from app.notifier.base import Notifier
 import smtplib
 from email.message import EmailMessage
 from app.core.config import settings
-from app.core.exeptions import  SenderNotAuthenticated, NotifierUnreachable,RecipientRefused
+from app.core.exceptions import  SenderNotAuthenticated, NotifierUnreachable,RecipientRefused
 from app.schemas.price import Criteria
 import logging
 

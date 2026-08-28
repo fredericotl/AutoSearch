@@ -3,11 +3,11 @@ from sqlalchemy.orm import Session
 from fastapi import Depends, Path, HTTPException, APIRouter
 from starlette import status
 from app.core.security import get_current_user
-from app.core.exeptions import ScraperFail
+from app.core.exceptions import ScraperFail
 from app.db.session import get_db
 from app.schemas import CreateProduct, ProductResponse, ProductPriceResponse, ProductToScrape
 from app.services import get_watched_products, get_product, create_product, remove_product,save_product_price_api
-from app.core.exeptions import ProductNotFound, UserNotFollow, UnsupportedScraper
+from app.core.exceptions import ProductNotFound, UserNotFollow, UnsupportedScraper
 router = APIRouter(prefix="/products", tags=["Products"])
 
 db_dependency = Annotated[Session, Depends(get_db)]

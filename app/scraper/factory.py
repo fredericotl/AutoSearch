@@ -1,5 +1,5 @@
 from app.scraper import AmazonScraper
-from app.core.exeptions import UnsupportedScraper
+from app.core.exceptions import UnsupportedScraper
 from urllib.parse import urlparse
 
 
