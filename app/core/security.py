@@ -6,13 +6,12 @@ from passlib.context import  CryptContext
 from fastapi.security import OAuth2PasswordBearer
 from jose import  jwt, JWTError
 from app.models.user import User
-from sqlalchemy.orm import Session
 from app.core.config import settings
 
 
 SECRET_KEY = settings.secret_key
 ALGORITHM = "HS256"
-
+EXPIRE_DELTA = timedelta(minutes=20)
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated= "auto")
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl="auth/token")
@@ -23,17 +22,9 @@ def is_password_equal(password, hashed_password):
 def hash_password(password):
     return bcrypt_context.hash(password)
 
-def authenticate_user(username: str, password: str, db: Session):
-    user = db.query(User).filter(User.username== username).first()
-    if not user:
-        return False
-    if not is_password_equal(password, user.hashed_password):
-        return False
-    return user
-
-def create_access_token(user: User, expires_delta: timedelta):
+def create_access_token(user: User):
     encode = {"sub": user.username, "id": user.id, "role": user.role}
-    expires = datetime.now(timezone.utc) + expires_delta
+    expires = datetime.now(timezone.utc) + EXPIRE_DELTA
     encode["exp"] = expires
     return jwt.encode(encode, SECRET_KEY, algorithm=ALGORITHM)
 

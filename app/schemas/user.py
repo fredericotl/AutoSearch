@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, EmailStr, ConfigDict
+from pydantic import BaseModel, Field, EmailStr, ConfigDict, model_validator
 
 
 class CreateUser(BaseModel):
@@ -8,6 +8,12 @@ class CreateUser(BaseModel):
     last_name: str = Field(max_length=100)
     password: str = Field(min_length=8, max_length=100)
     password_confirm: str = Field(min_length=8, max_length=100)
+
+    @model_validator(mode="after")
+    def _password_match(self):
+        if self.password != self.password_confirm:
+            raise ValueError("password do not match")
+        return self
 
 class Token(BaseModel):
     access_token: str
@@ -27,9 +33,22 @@ class ChangePassword(BaseModel):
     new_password: str = Field(min_length=8, max_length=100)
     new_password_confirm: str = Field(min_length=8, max_length=100)
 
+    @model_validator(mode="after")
+    def _password_match(self):
+        if self.new_password != self.new_password_confirm:
+            raise ValueError("password do not match")
+        return self
+
+
 class ChangeEmail(BaseModel):
     new_email: EmailStr
     new_email_confirm: EmailStr
+
+    @model_validator(mode="after")
+    def _emails_match(self):
+        if self.new_email != self.new_email_confirm:
+            raise ValueError("email do not match")
+        return self
 
 class ViewerRef(BaseModel):
     model_config = ConfigDict(from_attributes=True)
