@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from bs4 import BeautifulSoup
-from app.core.exceptions import ScraperUnavailable, ProductGone, ScraperBlocked
+from app.core import ScraperUnavailable, ProductGone, ScraperBlocked
 import requests
 
 class Scraper(ABC):

@@ -1,5 +1,5 @@
 import logging
-from app.core.config import settings,BASE_DIR
+from app.core.config import settings, BASE_DIR
 
 LOG_DIR = BASE_DIR / "logs"
 LOG_FILE = LOG_DIR / "app.log"

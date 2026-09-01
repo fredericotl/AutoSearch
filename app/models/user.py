@@ -1,4 +1,4 @@
-from app.db.session import Base
+from app.db import Base
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from app.models.associations import product_viewers

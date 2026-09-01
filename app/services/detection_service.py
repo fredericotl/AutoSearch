@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from app.core.clock import now
+from app.core import now
 from app.models import Detection, Product, User
 from app.schemas import DetectionNotifyByUser, ProductToNotify, NotifierInput
 

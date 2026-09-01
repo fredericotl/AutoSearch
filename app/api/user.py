@@ -3,10 +3,10 @@ from sqlalchemy.orm import Session
 from fastapi import Depends,  HTTPException, APIRouter
 from starlette import status
 from app.schemas import ChangePassword, ChangeEmail, UserResponse
-from app.db.session import get_db
-from app.core.security import get_current_user
-from app.core.exceptions import WrongPassword
+from app.db import get_db
+from app.core import get_current_user, WrongPassword
 from app.services import find_user, change_user_password, change_user_email
+
 router = APIRouter(prefix="/user", tags=["User"])
 
 db_dependency = Annotated[Session, Depends(get_db)]

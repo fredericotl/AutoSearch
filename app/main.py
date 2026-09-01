@@ -1,10 +1,10 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from app.api import auth, users, product
+from app.api import auth_router, user_router, product_router
 from app.workers import TasksRound, TaskScheduler
-from app.core.logging_setup import setup_logging
+from app.core import setup_logging
 import app.models
-from app.db.session import Base, engine
+from app.db import Base, engine
 
 
 HOUR = 3
@@ -22,6 +22,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-app.include_router(auth.router)
-app.include_router(users.router)
-app.include_router(product.router)
+app.include_router(auth_router)
+app.include_router(user_router)
+app.include_router(product_router)

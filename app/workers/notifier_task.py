@@ -1,8 +1,8 @@
 from app.schemas import NotifierInput, CreateError, ErrorSource
 from app.notifier import EmailNotifier
-from app.core.exceptions import (NotifierFail, RecipientRefused, EmptyNotification, SenderNotAuthenticated,
+from app.core import (NotifierFail, RecipientRefused, EmptyNotification, SenderNotAuthenticated,
                                  NotifierUnreachable)
-from app.db.session import SessionLocal
+from app.db import SessionLocal
 from app.services import get_pendent_detections_by_user, mark_detections_sent, save_error
 
 class NotifierTask:

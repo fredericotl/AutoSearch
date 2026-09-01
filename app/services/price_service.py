@@ -4,7 +4,7 @@ from app.models import PriceHistory
 from app.schemas import ProductPriceResponse, ProductToScrape
 from datetime import date
 from app.scraper import get_scraper_for_link
-from app.core.exceptions import PriceNotFound
+from app.core import PriceNotFound
 
 #TODO resolve possiveis redundancias de busca de preços ou coisas do tipo
 def _find_product_price_by_date(db: Session, product_id: int, check_date: date):

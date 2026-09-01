@@ -2,9 +2,8 @@ import socket
 from app.notifier.base import Notifier
 import smtplib
 from email.message import EmailMessage
-from app.core.config import settings
-from app.core.exceptions import  SenderNotAuthenticated, NotifierUnreachable,RecipientRefused
-from app.schemas.price import Criteria
+from app.core import settings, SenderNotAuthenticated, NotifierUnreachable,RecipientRefused
+from app.schemas import Criteria
 import logging
 
 logger = logging.getLogger(__name__)

@@ -1,8 +1,7 @@
 from sqlalchemy.orm import Session
-from app.core.security import is_password_equal, hash_password
-from app.core.exceptions import WrongPassword, UserNotFound
-from app.models.user import User
-from app.schemas.user import CreateUser
+from app.core import is_password_equal, hash_password, WrongPassword, UserNotFound
+from app.models import User
+from app.schemas  import CreateUser
 
 
 def create_new_user(db: Session, create_user_request: CreateUser):

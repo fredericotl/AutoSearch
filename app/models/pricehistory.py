@@ -1,6 +1,6 @@
-from app.db.session import Base
+from app.db import Base
 from sqlalchemy import Column, Integer, ForeignKey, DateTime, Index
-from app.core.clock import now
+from app.core import now
 
 
 #TODO status de falha e lidar quando produto apagar

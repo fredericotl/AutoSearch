@@ -58,3 +58,7 @@ class EmptyNotification(NotifierFail):
     """Notifier with 0 items."""
     pass
 
+__all__ = ["ProductNotFound", "ScraperFail", "ScraperUnavailable", "ProductGone",
+           "ScraperBlocked", "PriceNotFound", "UnsupportedScraper", "UserNotFound","UserNotFollow",
+           "WrongPassword", "NotifierFail", "SenderNotAuthenticated", "NotifierUnreachable", "RecipientRefused",
+           "EmptyNotification"]

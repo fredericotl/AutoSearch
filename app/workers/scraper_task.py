@@ -1,8 +1,8 @@
 from app.services import (get_all_products, save_product_price_scheduler, save_error,create_detections, PriceWindow)
-from app.db.session import SessionLocal
+from app.db import SessionLocal
 from app.schemas import CreateError, ProductToNotify, ProductToScrape, ErrorSource
 from time import sleep
-from app.core.exceptions import (ScraperFail, UnsupportedScraper, PriceNotFound, ScraperBlocked,
+from app.core import (ScraperFail, UnsupportedScraper, PriceNotFound, ScraperBlocked,
                                  ScraperUnavailable, ProductGone)
 from sqlalchemy.orm import Session
 

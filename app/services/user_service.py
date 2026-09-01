@@ -1,8 +1,7 @@
 from sqlalchemy.orm import Session
 from app.models import User
 from app.schemas import ChangePassword, ChangeEmail
-from app.core.security import  is_password_equal, hash_password
-from app.core.exceptions import WrongPassword
+from app.core import  is_password_equal, hash_password, WrongPassword
 
 def find_user(db: Session, user_id:int):
     return db.query(User).filter(User.id == user_id).first()

@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from app.schemas import NotifierInput
-from app.core.exceptions import EmptyNotification
+from app.core import EmptyNotification
+
 class Notifier(ABC):
 
     def __init__(self, receiver_info: NotifierInput):

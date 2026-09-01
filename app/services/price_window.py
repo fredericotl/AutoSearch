@@ -3,7 +3,7 @@ from sqlalchemy import select
 from datetime import timedelta, datetime, time
 from app.models import PriceHistory
 from app.schemas import Criteria
-from app.core.clock import now
+from app.core import now
 from statistics import stdev
 
 class PriceWindow:

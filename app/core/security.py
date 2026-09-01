@@ -5,7 +5,6 @@ from starlette import status
 from passlib.context import  CryptContext
 from fastapi.security import OAuth2PasswordBearer
 from jose import  jwt, JWTError
-from app.models.user import User
 from app.core.config import settings
 
 
@@ -22,8 +21,8 @@ def is_password_equal(password, hashed_password):
 def hash_password(password):
     return bcrypt_context.hash(password)
 
-def create_access_token(user: User):
-    encode = {"sub": user.username, "id": user.id, "role": user.role}
+def create_access_token(username: str, user_id: int, user_role: str ):
+    encode = {"sub": username, "id": user_id, "role": user_role}
     expires = datetime.now(timezone.utc) + EXPIRE_DELTA
     encode["exp"] = expires
     return jwt.encode(encode, SECRET_KEY, algorithm=ALGORITHM)
