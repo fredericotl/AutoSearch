@@ -18,9 +18,7 @@ def get_product(db: Session, product_id: int)-> type[Product]|None:
     return product
 
 def get_product_viewers(db: Session, product_id: int) -> list[type[User]]|None:
-    product = db.query(Product).filter(Product.id == product_id).first()
-    if not product:
-        raise ProductNotFound(f"Product Not Found")
+    product = get_product(db, product_id)
     viewers = []
     for viewer in product.viewers:
         viewers.append(viewer)
@@ -36,8 +34,6 @@ def create_product(db: Session, product_request: CreateProduct, user_id: int):
                             owner_id=user_id,
                             viewers=[owner])
     db.add(product_model)
-    db.commit()
-    db.refresh(product_model)
     return product_model
 
 #TODO Resolver quem é o novo dono lidar com exceptions
@@ -53,7 +49,7 @@ def remove_product(db:Session, product_model: Product, user_id: int):
         product_model.viewers.remove(user)
         if product_model.owner_id == user_id:
             product_model.owner_id = None
-    db.commit()
+
 
 
 

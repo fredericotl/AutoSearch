@@ -28,16 +28,14 @@ def _capture_price(db: Session, product_model: ProductToScrape) -> ProductPriceR
 
     product_price_model = PriceHistory(product_id=product_model.id, price=price)
     db.add(product_price_model)
-    db.commit()
-    db.refresh(product_price_model)
 
     return ProductPriceResponse(title=product_model.title, price=price, link=product_model.link,
                                  status="scraped" if price else "no_price_found")
 
 
 def save_product_price_api(db: Session, product_model: ProductToScrape) -> ProductPriceResponse:
-    return _capture_price(db, product_model)
-
+    result = _capture_price(db, product_model)
+    return result
 
 def save_product_price_scheduler(db: Session, product_model: ProductToScrape) -> int:
     result = _capture_price(db, product_model)

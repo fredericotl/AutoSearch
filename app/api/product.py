@@ -26,16 +26,18 @@ async def read_product(user: user_dependency, db: db_dependency, product_id: int
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=ProductResponse)
 async  def create_new_product(user: user_dependency, db: db_dependency, product_request: CreateProduct):
-    return create_product(db, product_request, user.get("id"))
+    product = create_product(db, product_request, user.get("id"))
+    db.commit()
+    return product
 
 ##TODO pensar em uma forma de fazer update sendo o owner e se faz sentido uma vez que existem folowers
-
 #TODO usar ou não REST Delete
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def unfollow_product(user: user_dependency, db: db_dependency, product_id : int =Path(gt=0)):
     try:
         product_model = get_product(db,product_id)
         remove_product(db, product_model, user.get("id"))
+        db.commit()
     except ProductNotFound as e:
         raise HTTPException(404, str(e))
     except UserNotFollow as e:
@@ -46,7 +48,9 @@ async  def update_product_price(user: user_dependency, db: db_dependency, produc
     try:
         product = get_product(db, product_id)
         product_model = ProductToScrape.model_validate(product)
-        return save_product_price_api(db, product_model)
+        product = save_product_price_api(db, product_model)
+        db.commit()
+        return product
     except ProductNotFound as e:
         raise HTTPException(status_code=404, detail=str(e))
     except UnsupportedScraper as e:

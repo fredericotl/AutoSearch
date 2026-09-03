@@ -35,6 +35,7 @@ class ScraperTask:
             try:
                 window = PriceWindow.from_history(db,product.id)
                 price_today = save_product_price_scheduler(db, product)
+                db.commit()
                 criteria = window.evaluate_price_criteria(price_today)
                 if criteria is not None:
                     product_to_notify = ProductToNotify(
