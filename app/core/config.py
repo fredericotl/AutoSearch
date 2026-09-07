@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     sqlalchemy_database_url: str
     log_level: str = Field(default="INFO")
     time_zone: str = Field(default="America/Sao_Paulo")
+    window_of_days: int = 365
 
     @field_validator("sqlalchemy_database_url")
     @classmethod

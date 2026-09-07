@@ -1,4 +1,5 @@
 from enum import Enum
+from pydantic import BaseModel
 
 class Criteria(str, Enum):
     LOWEST_PRICE = "lowest_price"

@@ -4,27 +4,27 @@ from fastapi import Depends, Path, HTTPException, APIRouter
 from starlette import status
 from app.core import get_current_user, ScraperFail, ProductNotFound, UserNotFollow, UnsupportedScraper
 from app.db import get_db
-from app.schemas import CreateProduct, ProductResponse, ProductPriceResponse, ProductToScrape
-from app.services import get_watched_products, get_product, create_product, remove_product,save_product_price_api
-
+from app.schemas import (CreateProduct, CreateProductResponse,
+                         ProductResponse, ProductPriceResponse, ProductToScrape, WatchedProductsResponse)
+from app.services import (get_product, get_watched_products_with_prices, get_product_with_prices,
+                          create_product, remove_product, save_product_price_api)
 router = APIRouter(prefix="/products", tags=["Products"])
 
 db_dependency = Annotated[Session, Depends(get_db)]
 user_dependency = Annotated[dict, Depends(get_current_user)]
 
-#TODO add response model
-@router.get("/", status_code=status.HTTP_200_OK)
+@router.get("/", status_code=status.HTTP_200_OK, response_model=WatchedProductsResponse)
 async  def read_all(user: user_dependency, db: db_dependency):
-    return get_watched_products(db, user.get("id"))
+    return get_watched_products_with_prices(db, user.get("id"))
 
 @router.get("/{product_id}", status_code=status.HTTP_200_OK, response_model=ProductResponse)
 async def read_product(user: user_dependency, db: db_dependency, product_id: int = Path(gt=0)):
     try:
-        return get_product(db, product_id)
+        return get_product_with_prices(db, product_id)
     except ProductNotFound as e:
         raise HTTPException(status_code=404, detail= str(e))
 
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=ProductResponse)
+@router.post("/", status_code=status.HTTP_201_CREATED, response_model=CreateProductResponse)
 async  def create_new_product(user: user_dependency, db: db_dependency, product_request: CreateProduct):
     product = create_product(db, product_request, user.get("id"))
     db.commit()

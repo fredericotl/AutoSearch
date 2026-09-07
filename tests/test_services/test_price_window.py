@@ -38,7 +38,7 @@ def test_price_window_count_minimum():
 def test_price_window_from_history():
     db = mock_db_session()
     db.scalars.return_value.all.return_value = [100,100,100,100,100,100,100,100,100,100]
-    pw = PriceWindow.from_history(db, 1)
+    pw = PriceWindow.for_scraper(db, 1)
     assert pw.count == 10
     assert pw.minimum == 100.0
     assert pw.prices_sum == 1000.0

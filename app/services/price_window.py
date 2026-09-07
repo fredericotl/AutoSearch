@@ -3,12 +3,12 @@ from sqlalchemy import select
 from datetime import timedelta, datetime, time
 from app.models import PriceHistory
 from app.schemas import Criteria
-from app.core import now
+from app.core import now, settings
 from statistics import stdev
 
 class PriceWindow:
 
-    WINDOW_OF_DAYS = 365
+    WINDOW_OF_DAYS: int =settings.window_of_days
     MINIMUM_DATA_COUNT: int = 7
 
     def __init__(self, minimum, count, prices_sum, standard_deviation):
@@ -27,6 +27,10 @@ class PriceWindow:
                  PriceHistory.captured_at >= start,
                  PriceHistory.captured_at < today,
                  PriceHistory.price.is_not(None))).all()
+        return cls.from_prices(list(prices))
+
+    @classmethod
+    def from_prices(cls, prices:list[int]):
         count = len(prices)
         if count == 0:
             minimum, prices_sum,standard_deviation  = None, None, None
@@ -55,6 +59,5 @@ class PriceWindow:
         if self.count < 2:
             return None
         return self.mean()-self.standard_deviation
-
 
 

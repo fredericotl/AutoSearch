@@ -20,7 +20,7 @@ def test_read_all_products(test_product, test_user):
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
-    assert data[0]["title"] == "Test Product"
+    assert data["products"][0]["title"] == "Test Product"
     assert data[0]["specification"] == "This is a test product."
 
 def test_read_product(test_user, test_product):

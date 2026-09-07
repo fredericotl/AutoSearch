@@ -13,6 +13,19 @@ class ProductResponse(BaseModel):
     title: str
     link: str
     specification: str | None
+    price_today: str | None = None
+    lowest_price: str | None = None
+    mean: str | None = None
+
+class WatchedProductsResponse(BaseModel):
+    products: list[ProductResponse]
+
+class CreateProductResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    title: str
+    link: str
+    specification: str | None
 
 class ProductPriceResponse(BaseModel):
     title: str | None

@@ -33,7 +33,7 @@ class ScraperTask:
         for product in all_products:
             db = SessionLocal()
             try:
-                window = PriceWindow.from_history(db,product.id)
+                window = PriceWindow.from_history(db, product.id)
                 price_today = save_product_price_scheduler(db, product)
                 db.commit()
                 criteria = window.evaluate_price_criteria(price_today)
