@@ -1,11 +1,35 @@
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from app.core import now
 from app.models import Detection, Product, User
 from app.schemas import DetectionNotifyByUser, ProductToNotify, NotifierInput
+from datetime import timedelta
 
+NOTIFICATION_COOLDOWN = timedelta(days=7)
+
+def _is_detection_pertinent(price_today: int, last_notification):
+    if last_notification is None:
+        return True
+    last_price = last_notification.price
+    send_at_delta = now().date() - last_notification.sent_at.date()
+    if last_price > price_today:
+        return True
+    elif send_at_delta > NOTIFICATION_COOLDOWN:
+        return True
+    return False
 
 def create_detections(db: Session, product: ProductToNotify):
+
+    position = func.row_number().over(partition_by=Detection.user_id, order_by=(Detection.sent_at.desc(), Detection.id.desc())).label("position")
+    by_product = select(Detection.user_id, Detection.price, Detection.sent_at ,position) \
+        .where(Detection.product_id == product.id,
+               Detection.sent_at.is_not(None)).subquery()
+    by_position = db.execute(select(by_product).where(by_product.c.position == 1)).all()
+    by_user = {row.user_id: row for row in by_position}
     for viewer in product.viewers:
+        last_notification = by_user.get(viewer.id)
+        if not _is_detection_pertinent(price_today=product.price, last_notification=last_notification):
+            continue
         detection_model = Detection(product_id=product.id,
                                     user_id=viewer.id,
                                     criteria=product.criteria,
