@@ -1,0 +1,25 @@
+
+services:
+  api:
+    build: .
+    image: autosearch-api
+    container_name: autosearch_api
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    environment:
+      SQLALCHEMY_DATABASE_URL: ${SQLALCHEMY_DATABASE_URL_DOCKER}
+      TZ: "America/Sao_Paulo"
+
+    ports:
+      - "127.0.0.1:8001:8000"
+
+    volumes:
+      - autosearch_data:/code/data
+      - autosearch_logs:/code/logs
+
+volumes:
+  autosearch_data:
+  autosearch_logs:
