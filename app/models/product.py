@@ -8,7 +8,7 @@ from app.models.associations import product_viewers
 class Product(Base):
     __tablename__ = 'products'
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     title = Column(String,nullable=False)
     link = Column(String, nullable=False)
     specification = Column(String, nullable=True)

@@ -12,7 +12,6 @@ HOUR = 3
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
-    Base.metadata.create_all(bind=engine)
     round = TasksRound()
     scheduler = TaskScheduler()
     scheduler.add_daily(round.run,HOUR)

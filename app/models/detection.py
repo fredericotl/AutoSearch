@@ -5,7 +5,7 @@ from app.core import now
 class Detection(Base):
     __tablename__ = 'detections'
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     product_id = Column(Integer, ForeignKey("products.id", ondelete= "SET NULL"), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     criteria = Column(String,nullable=False)
