@@ -1,300 +1,206 @@
 # Architecture
 
-AutoSearch is a price monitoring backend: a REST API registers products and users, and a daily
-job captures the price of each product, stores the observation, and sends an email when the price
-reaches the lowest value in the recorded history.
+AutoSearch is a price monitoring backend. A REST API registers users and products, and a daily job captures the price of each product, stores it, and emails the users who follow that product when the price is low compared with its recent history.
 
-This document describes the code organization, its boundaries, and the reasons behind each decision. It does not describe future work.
+This document explains how the code is organized and why. Project status, setup and known gaps are in the [README](./README.md).
+
+## Layers at a glance
+
+| Folder | Responsibility | What decides that code lives here |
+|---|---|---|
+| `api/` | Receive and answer HTTP requests | Thin edge. It turns domain exceptions into `HTTPException` |
+| `schemas/` | Input, output and cross-layer contracts | Anything that crosses a boundary. A closed vocabulary lives with the layer that produces it |
+| `models/` | Tables, columns and relationships | How data is stored. Log tables declare no `relationship` |
+| `services/` | Business rules and decisions | Callable by the API and by workers. It knows nothing about HTTP |
+| `scraper/` | Fetch the page and extract the price | External adapter. Fetching is shared, parsing changes per site |
+| `notifier/` | Build and deliver the message | External adapter. Each subclass is a delivery channel |
+| `db/` | Engine, session, `Base`, `get_db` | Isolated infrastructure. The database URL arrives ready from settings |
+| `workers/` | Work that runs outside a request | Orchestrates services. It imports no models, writes no queries and never touches `requests` or `smtplib` |
+| `core/` | Settings, clock, logging, security, exceptions | One source per cross-cutting question. It never queries the database or imports from `app/` |
+| `main.py` | Build the app and the daily round | Assembly only |
 
 ## Flow
 
-The daily round consists of two independent tasks, chained at composition time:
+The daily round has two tasks, chained at composition time:
 
 ```
 ScraperTask     fetch → parse → write to price_history → evaluate criterion → write to detections
 NotifierTask    read pending detections → group by recipient → send → mark as sent
 ```
 
-The tasks do not reference each other. The `detections` table is their only shared state, and `TasksRound` defines their order. The round has two entry points: `main.py` schedules it daily, and `workers/cli.py` runs it on demand.
+The round has two entry points: `main.py` schedules it daily, and `workers/cli.py` runs it on demand.
 
-## Codemap
+## Folder structure
 
 ```
 app/
-├── api/              # HTTP layer (routes)
-│   ├── auth.py       # registration + token issuance
-│   ├── product.py    # product CRUD + API price capture
-│   └── users.py      # the caller's own data and changes
-├── schemas/          # Data contracts (Pydantic)
-│   ├── product.py    # CreateProduct, ProductResponse, ProductPriceResponse, ProductToScrape
-│   ├── user.py       # CreateUser, Token, UserResponse, ChangePassword, ChangeEmail, ViewerRef
-│   ├── notifier.py   # Criteria, DetectionNotifyByUser, NotifierInput, ProductToNotify, PriceWindowStats
-│   └── error.py      # ErrorSource (Enum), CreateError
-├── models/           # Persistence (ORM)
-│   ├── associations.py  # association tables
-│   ├── product.py
-│   ├── user.py
-│   ├── pricehistory.py  # PriceHistory
-│   ├── detection.py     # Detection — detection log
-│   └── error.py         # Error — system-wide error log
-├── services/         # Business rules
-│   ├── product_service.py    # product CRUD and lifecycle
-│   ├── price_service.py      # price capture + criterion evaluation
-│   ├── detection_service.py  # writing, reading and marking detections
-│   ├── error_service.py
-│   └── user_service.py
-├── scraper/          # External adapter — fetch + parse
-│   ├── base.py       # Scraper (ABC): shared get_soup, abstract parse, get_price template
-│   ├── amazon_scraper.py
-│   └── factory.py
-├── notifier/         # External adapter — notification delivery
-│   ├── base.py           # Notifier (ABC) — the axis of variation is the channel
-│   └── email_notifier.py # EmailNotifier (SMTP)
-├── db/               # Connection and session
-│   └── session.py
-├── core/             # Configuration and cross-cutting concerns
-│   ├── config.py     # Settings (pydantic-settings)
-│   ├── logging_setup.py   # setup_logging() — file handler under logs/, level from Settings
-│   ├── security.py
-│   └── exceptions.py  # domain exceptions, grouped into two families
-├── workers/          # Background tasks
-│   ├── scraper_task.py    # ScraperTask — scraping + detection
-│   ├── notifier_task.py   # NotifierTask — delivery of pending detections
-│   ├── tasks_round.py     # TasksRound — chains both tasks into one round
-│   ├── cli.py             # manual entry point: python -m app.workers.cli
-│   └── scheduler.py       # TaskScheduler — scheduling wrapper (APScheduler)
-└── main.py           # create_all, composition of the daily round, lifespan
+├── api/        HTTP layer, one router per resource
+├── schemas/    Pydantic contracts and closed vocabularies
+├── models/     ORM entities
+├── services/   business rules
+├── scraper/    page fetching and price parsing
+├── notifier/   message delivery
+├── db/         connection and session
+├── core/       cross-cutting concerns
+├── workers/    tasks and scheduling
+└── main.py     entry point
+
+sql/            hand-written PostgreSQL schema
+tests/          mirrors app/ (left out of the Docker image)
 ```
 
-## Responsibilities
+At the root: pinned `requirements.txt` and `requirements-dev.txt`, `Dockerfile`, `docker-compose.yml` and `pytest.ini`. The `.env` file stays out of git and out of the image.
 
-| Module | Responsibility | Key idea |
-|---|---|---|
-| `api/` | Receive the request, validate input, delegate to a service, return the right status code | Thin edge: translates domain exceptions into `HTTPException`; services remain unaware of HTTP. Routes should stay small; business logic belongs in services. |
-| `schemas/` | Define what enters and leaves the API, and what crosses a boundary between layers | Public contract ≠ internal structure: `UserResponse` exposes neither `hashed_password` nor `role`. Optional input fields require corresponding optional output fields. |
-| `models/` | Map tables, columns, relationships and constraints | Describes how data is stored, not how it travels. `nullable=False` is defense in depth because the API is not the only path to the database. |
-| `services/` | Business logic: create products, capture and persist prices, evaluate criteria, and record detections and errors. | Callable by both the API and the workers. Domain constants live here |
-| `scraper/` | Fetch HTML and extract a price, translating library failures into domain exceptions | Fixed boundary: fetching is shared; parsing varies by site. |
-| `notifier/` | Compose and deliver a message over an external channel | Receives a ready `NotifierInput`; it does not query the database, choose recipients, or record errors. |
-| `db/` | Engine, session, declarative `Base`, the `get_db` dependency | Isolated infrastructure. Replacing SQLite with Postgres should require minimal changes elsewhere. |
-| `workers/` | Background work that must not block HTTP requests | Temporal decoupling. Reuses `services/` instead of duplicating logic. This layer decides whether a failure affects one item or the whole round. |
-| `core/` | Configuration, security, logging setup, and the domain exception vocabulary | Cross-cutting concerns consumed by every layer and dependent on none. Modules only emit (`getLogger(__name__)`); the entry point configures. |
-| `main.py` | Create the app, register routers, create the schema, compose the round | Composition only, including task ordering. |
-
-Three conventions that cut across the table:
-
-- **Closed sets of values use `String` in the database and `Enum` in the schema** (`User.role`,
-  `Detection.criteria`, `Error.source`). Validation lives at the edge and a new value needs no table
-  change; the accepted cost is that the database does not validate on its own.
-- **Relationships between `User` and `Product` declare `foreign_keys` explicitly.** There are two
-  paths between them, and without it SQLAlchemy cannot choose and fails at initialization.
-- **Environment configuration is a single `Settings(BaseSettings)` read from `.env`.** Domain rules
-  do not belong there. It is instantiated at import time, so any module that depends on it requires
-  a valid `.env`.
-
-## Dependencies and invariants
+## Dependencies
 
 ```
-api      ──▶ services ──▶ models / db
-workers  ──▶ services
+api      ──▶ services ──▶ models ──▶ db
+workers  ──▶ services ──▶ scraper
 workers  ──▶ notifier
-services ──▶ scraper
 main.py  ──▶ workers
+
+every layer ──▶ core
+every layer ──▶ schemas
 ```
 
-The rules below are stated as absences — they describe what must not appear in the code:
+The arrows only point down. `services/` never imports from `api/`, since that would make business rules depend on the HTTP layer.
 
-- **`services/` never imports from `api/`.** The reverse direction is inverted coupling.
-- **`workers/` does not know about tables.** No model imports, no queries. Domain rules belong to
-  the service; task orchestration belongs to the worker.
-- **`workers/` does not know about external libraries.** `requests` and `smtplib` never appear
-  there — failures arrive already translated into domain exceptions.
-- **No service that receives `db` calls `commit`.** The transaction belongs to whoever opened the
-  session.
-- **Nothing from the ORM crosses a session boundary.** What leaves a session block is a Pydantic
-  snapshot, not a mapped instance.
-- **Log tables declare no `relationship`.** `PriceHistory`, `Detection` and `Error` are read through
-  explicit queries, joined when context is needed — a relationship on a log table is an invitation
-  to lazy loading.
-- **Imports between services target the module, never the package facade.** The facade
-  (`__init__.py`) exists for consumers outside the package; using it from the inside creates a
-  cycle. Private functions are not re-exported.
+### Package facades
+
+Each package in `app/` exposes its public names through `__init__.py`.
+
+1. The facade exposes what crosses the package boundary, and nothing else.
+2. Code inside a package imports by module, never through its own facade. Going through the facade closes a cycle with `__init__.py`.
+3. A public name belongs to one facade. Repeated names get aliases (the three `router` objects become `auth_router`, `user_router` and `product_router`).
+
+Private functions (leading `_`) never enter a facade.
 
 ## Decisions
 
-Format: context → choice → reason. The numbering has gaps: decisions covering naming and
-organization conventions were dropped as noise, and what survived of them became a note on the
-corresponding layer. Numbers are never reused.
+Each decision states what was chosen and why. The numbering has gaps because early decisions about naming and organization were folded into the sections above. Numbers are never reused.
 
-### ADR-003: authorization belongs to the edge — declared in core/, applied in api/
+### ADR-003: authorization belongs to the edge
 
-"Admin" is a permission level, not a resource: `require_admin` lives in `core/security.py` and routes
-declare it through `Depends`. Workers call services directly and go through no access control —
-authorization exists for external actors, and a worker is not one.
+`require_admin` lives in `core/security.py` and routes declare it through `Depends`. Workers call services directly and skip access control, since authorization exists for external actors. Code that queried the database moved from `core/` to `services/`, and security functions receive plain values (`username`, `user_id`, `user_role`) instead of the `User` entity.
 
-### ADR-007: a product is public — it survives without an owner and is deleted without viewers
+### ADR-007: a product is public
 
-The user↔product link is a plain associative `Table` with a composite primary key and no metadata,
-kept in `models/associations.py` — a neutral file that avoids cross-imports between `product.py` and
-`user.py`. On top of that link, a product survives without an owner (`owner_id` nullable,
-`ondelete="SET NULL"`) and is deleted when it loses its last viewer.
+The user↔product link is a plain association table with a composite key and no extra columns. A product belongs to the catalog: it survives when its owner leaves (`owner_id` is nullable with `ON DELETE SET NULL`) and is deleted when it loses its last viewer.
 
-SQLite does not enforce `ON DELETE` without a per-connection PRAGMA, so `remove_product` deletes the
-detections **before** the product, in the same transaction. Order matters: with the foreign key
-enforced, deleting the product first would trigger `SET NULL` and the filter on `product_id` would
-match nothing.
+### ADR-010: one event, two contracts
 
-### ADR-010: one event, two contracts — private logic plus per-caller wrappers
+Capturing a price has two callers with opposite needs. For the API, finding no price is a result (200 with `status="no_price_found"`). For the worker, it is an exception. The logic lives once in `_capture_price`, and two thin wrappers expose the two contracts:
 
-Capturing a price has two consumers with opposite needs. For the API, finding no price is a *result*
-— 200 with `status="no_price_found"`. For the worker, it is an *exception*: inside a loop, the value
-only matters when it exists. The obvious alternative, duplicating the logic per caller, would leave
-capture with two owners.
+```
+_capture_price
+ ├── save_product_price_api        → returns a status
+ └── save_product_price_scheduler  → raises PriceNotFound
+```
 
-So the real logic lives in `_capture_price` (private) and two thin wrappers sit on top: one returns
-the response as is, the other raises `PriceNotFound` and returns the price when there is one. The
-leading underscore is not decoration — it marks the function as absent from the package facade, so
-consumers pick one of the two contracts and never the one in between.
-
-A *fetch* failure raises before any write and therefore produces no row in `price_history`, while
-*parse* still returns `None`. That is what gives `price=NULL` a single meaning: the page was reached
-and no price was found.
+Cost: `price = NULL` exists in the history, with a single meaning ("the page was reached and no price was found"). Every consumer of prices filters it out.
 
 ### ADR-011: one service per lifecycle, not per entity
 
-Product CRUD and price capture deal with the same entity but have different dependencies and
-rhythms — the first answers a request and only talks to the database, the second depends on an
-external network and runs on a schedule. The boundary reflects that difference and anticipates the
-cut that queue-based scraping will require: when capture becomes a message, the file that changes is
-already isolated. `detection_service` was later born from the same criterion.
+Two pairs of services handle the same entity at different moments: `product_service` and `price_service`, and `user_service` and `auth_service`. Product CRUD answers a request and only talks to the database, while price capture depends on the network and runs on a schedule. Identity runs before a token exists, while profile changes run after.
 
-### ADR-012: get_product raises ProductNotFound, and the resource is resolved once at the edge
+### ADR-012: lookups raise, and the resource is resolved once at the edge
 
-The lookup raises instead of returning `None`, and resolution happens once per context rather than at
-every step of the chain. A `None` meaning "does not exist" forces every caller to check, and
-forgetting is silent, so the error surfaces far from its cause.
+`get_product` raises `ProductNotFound` instead of returning `None`. A `None` that means "does not exist" forces every caller to check, and forgetting fails silently far from the cause. `None` is still valid when it is a business answer, such as `evaluate_price_criteria` returning `None` when no criterion fired.
 
-This does not prohibit `None` as a return value: `PriceWindowStats.minimum = None` ("not enough
-history") and `evaluate_price_criteria → None` ("no criterion fired") are legitimate business
-answers. The rule is about a `None` that disguises an error. It also does not require passing whole
-objects around — `get_price_window_stats` takes a `product_id: int`, because that is all the function needs.
+### ADR-014: the price window is computed from history
 
-### ADR-014: sliding window computed in the query, without an aggregate table
+There is no aggregate table. A sliding window changes when the clock moves, even with no new write, and `min` does not survive the removal of old points. The window length comes from settings (`WINDOW_OF_DAYS`, 365 by default).
 
-`get_price_window_stats` returns `PriceWindowStats(minimum, count)` from a query using `func.min` and
-`func.count`, scoped to a 365-day window that excludes the current day. The decision itself is
-`evaluate_price_criteria`, a pure function. The reasons are:
-
-1. **A sliding window invalidates an incremental aggregate:** The values change with no new write —
-   the clock alone is enough. `min` and `max` are precisely the aggregates that do not survive the
-   removal of data points.
-2. **The scale does not justify it:** With an index on `product_id`, the aggregate walks a few
-   hundred rows per year.
-3. **Excluding the current day makes detection independent of the writer:** The API writes, the
-   worker writes; the cut in the `WHERE` clause applies to both.
-4. **Pure core, imperative shell:** I/O in the query, policy testable with three numbers.
-
-`func.count(PriceHistory.price)` counts prices collected, not attempts made. The comparison uses a
-strict `<`: with `<=`, a product sitting at its minimum would fire every single day.
+Detection excludes the current day, so it gives the same answer whether the API or the worker wrote today's price. The API read keeps the current day, because the screen compares today's price with the window that contains it.
 
 ### ADR-015: the transaction belongs to whoever opens the session
 
-No `services/` function that receives `db: Session` calls `commit`. Only the caller that sees the
-whole unit of work knows where it begins and ends — a leaf function never does, and by committing it
-decides on behalf of every caller. Beyond that, `commit` is not local: it writes everything pending
-in the session, including what the caller did not consider ready. Corollary: `commit` goes on the
-successful path and in the `except` that records the error, never in `finally`, which is for
-releasing resources. Accepted cost: a caller that forgets to commit loses the work silently.
+Only the caller that sees the whole unit of work knows where it starts and ends, and `commit` writes everything pending in the session. So `api/` and `workers/` commit, and services never do. `commit` goes on the success path and in the `except` that records an error, never in `finally`. Cost: a caller that forgets to commit loses the work silently.
 
-### ADR-016: the notification criterion is derived from the data, not configured
+### ADR-016: the notification criterion is derived from the data
 
-Persisting `criteria` as a column on `Product`, on the link table, or on `User` was evaluated and
-dropped. The criterion is not a preference, it is a conclusion: `evaluate_price_criteria` returns
-`Criteria | None`. Defining what counts as "cheap" is not the user's job — the user wants to know
-that the price is low, and which evidence supports that is a business rule. The amount of history
-does not select the criterion; it determines which criteria are *computable*. Criteria are checked
-in order with an early return on the first that fires, which makes the order of the code the
-precedence rule. `criteria` does go back to the database, in `Detection` — but as a recorded fact,
-not as configuration.
+Users do not configure what "cheap" means, because they do not have the price series. The system evaluates the criteria it can compute and returns the first one that fires:
 
-### ADR-017: detections delivered through a table, with fan-out at detection time
+1. `LOWEST_PRICE`: today's price is below the window minimum.
+2. `LOWER_BOUND`: today's price is at or below the mean minus one standard deviation.
 
-The scraping run writes one row per (product, user) at the moment the criterion fires; the
-notification run queries `WHERE sent_at IS NULL`, groups by recipient, sends, and marks exactly the
-`detection_id` values that were in the email. The reasons are:
+Both require at least 7 captures in the window. The order of the checks is the precedence rule. The criterion is stored in `detections` as a record of what happened.
 
-1. **Record vs. log:** `product_viewers` is a *record*: one row per pair, permanently. `detections`
-   is a *log*: one row per pair **per event**.
-2. **Fan-out at detection, not at delivery:** Doing it at delivery would require two tables to get
-   per-user idempotency; doing it at detection, one is enough.
-3. **The table removes the coupling:** Neither worker references the other, neither holds state in
-   memory, and a restart between the two runs loses nothing.
-4. **`sent_at` answers two questions:** what is left to send, and what was already
-   sent to whom.
+### ADR-017: detections are handed over through a table
 
-The row is not deleted after delivery. The chosen guarantee is *at least once*: marking happens
-after a successful send.
+The scraper writes one row per (product, user) when a criterion fires. The notifier reads `WHERE sent_at IS NULL`, groups by recipient, sends, and marks the rows it sent.
 
-### ADR-018: errors — translate at the boundary, classify by action, decide in orchestration, record in one log
+```
+ScraperTask ──writes──► [detections] ◄──reads/marks── NotifierTask
+                          sent_at NULL = pending
+```
 
-Four responsibilities, one per layer: **Translate** (`scraper/`, `notifier/`): catch the library
-exception and convert it into a domain exception with `raise X(...) from e`, preserving both the
-traceback and the cause. **Classify** (`core/exceptions.py`): exceptions named after the action they
-demand rather than the library that raised them, in two families with a common base — `ScraperFail`
-and `NotifierFail`. **Decide** (`workers/`): catch by tuple and map to an action — record and
-continue, or record and abort. **Record** (`models/error.py`): a single `errors` table for the whole
-system, with `source` separating origins.
+Fan-out happens at detection time, which freezes who should be notified at the moment the price was valid. The table is the only state the two tasks share, so neither references the other and a restart between them loses nothing. Cost: delivery is at least once, since marking happens after a successful send.
 
-`SenderNotAuthenticated` says "fix the credential"; `SMTPAuthError` only repeats what the library
-already said. The common base is a safety net: an exception someone forgets to list degrades to
-"recorded and skipped". The `except` clauses always run from specific to generic — `SMTPException`
-inherits from `OSError`, so an `except OSError` at the top would swallow every specific one.
+### ADR-018: errors are translated, classified, decided and recorded in different layers
+
+```
+scraper/ notifier/   translate   raise X(f"{type(e).__name__}: {e}") from e
+core/exceptions.py   classify    ScraperFail | NotifierFail
+workers/             decide      skip the item or abort the round
+models/error.py      record      one errors table, with a source column
+```
+
+Exceptions are named after the action they demand (`SenderNotAuthenticated` means "fix the credential"). A common base per family is a safety net for exceptions nobody listed. The `errors` table records operational failures only. Programming errors go to the log. Cost: a `TypeError` inside the scraper loop still costs the whole round.
 
 ### ADR-019: nothing from the ORM crosses a session boundary
 
-Two complementary changes: the service explicitly loads (`selectinload(Product.viewers)`), and the
-worker converts at the boundary, inside the block where the session is still alive, turning each
-`Product` into a `ProductToScrape` (Pydantic, `from_attributes=True`). "Detached" is not the problem;
-"detached and not loaded" is. The two changes answer different questions: `selectinload` answers how
-many queries this costs, the conversion answers what crosses the boundary. And the conversion *is*
-the loading — with `from_attributes=True`, validating means reading the attributes. `selectinload`
-rather than `joinedload` because, for a collection, `joinedload` multiplies parent rows and requires
-deduplication.
+The service loads explicitly (`selectinload`), and the worker converts each entity into a Pydantic schema (`from_attributes=True`) while the session is still open. A detached object is fine once it has been loaded. The risk is an object that is detached and not loaded, and converting at the boundary forces the load while it is still possible.
 
-### ADR-020: in workers/, the task is separate from the scheduling
+### ADR-020: a task is separate from its schedule
 
-`ScraperTask` and `NotifierTask` expose `run()` and do not know that cron exists; `TaskScheduler` is
-a thin wrapper over `BackgroundScheduler` and does not know what it is scheduling; the composition —
-scraper and then notifier, once a day — happens in `main.py`. This makes `run()` callable without
-touching a scheduler, and makes the scheduling library a replaceable detail. Of the three ways
-to chain the tasks, this is the only one that keeps both workers free of references to each other
-*and* free of any dependency on the scraper finishing in time. The notifier runs in a `finally`: if
-the scraper blows up, detections pending from earlier rounds are still delivered.
+`ScraperTask` and `NotifierTask` expose `run()` and know nothing about cron. `TasksRound` chains them, and `TaskScheduler` is a thin wrapper over APScheduler. A task can be tested without waiting for a time of day, and the scheduling library is a replaceable detail.
 
-### ADR-021: the schema is born from the models, with no migrations in the MVP
+In `TasksRound`, the notifier runs in `finally`, so detections already written are sent even if scraping fails halfway. `misfire_grace_time` is set in hours: running a few hours late costs almost nothing, while skipping a run leaves a gap in the series.
 
-`Base.metadata.create_all` is called in the `lifespan`, and the models are the single source of
-truth for the schema. `create_all` and a migration tool do not coexist: with `create_all` running on
-an empty database, every migration that issues `create_table` collides with it. Keeping both means,
-in practice, picking one and leaving the other as dead weight.
+### ADR-022: modules emit logs, the entry point configures them
 
-Accepted cost, and the thing that keeps this decision valid: `create_all` **does not alter an
-existing table** — a new column on a model never reaches the database and raises nothing at boot; it
-breaks on the first query. That is only acceptable while the database is disposable. The triggers to
-revisit are the first data that cannot be recreated, a move to Postgres, or a second person on the
-project. And the correct order, when that happens, is: empty database first, migrations second,
-`create_all` never again.
+All logging setup lives in `core/logging_setup.py`, and `setup_logging()` is idempotent. Modules only call `logging.getLogger(__name__)`. Handlers are attached to named loggers (`app` and `apscheduler`), never to the root, so a library reaches the log file only when it is named. `apscheduler` was added after it reported a skipped round to a logger with no handler.
+
+### ADR-023: one clock, São Paulo time, stored naive
+
+`core/clock.py` exposes `now()`, which reads `TIME_ZONE` from settings and returns a naive datetime. Every timestamp column uses `default=clock.now`, and the schema declares no time defaults. Before this, the database wrote UTC and the log used the machine's zone, which shifted the detection window by three hours. `core/security.py` keeps UTC, because a JWT `exp` is UTC by specification.
+
+Columns are `TIMESTAMP` without time zone. A `timestamptz` column would reinterpret the naive value using the session time zone, so adopting it requires changing the clock first.
+
+### ADR-024: the price window is an object with alternative constructors
+
+The window, its minimum, sum and deviation are always read together, and every criterion is a rule about them. `PriceWindow` groups them, with three entry points:
+
+```
+from_history(db, product_id) ──► from_prices(list[int]) ──► __init__(4 values)
+      (the only I/O)               (pure arithmetic)          (stores only)
+```
+
+Tests enter through `from_prices` with a list of integers and no database. The deviation is the sample one (`stdev`), since the window is a sample of the product's prices. Cost: an empty window is constructible and produces `None` attributes, so each method guards against it.
+
+### ADR-025: the database lives outside the container
+
+Context. The `Dockerfile` and `docker-compose.yml` were generated with an AI assistant. I reviewed them and ran the container to check that the API works and reads the same data as the local run.
+
+Decision. PostgreSQL runs on the host machine, outside the container. Compose injects `.env` into the container and overrides the database URL with an address that points to the host (`host.docker.internal`).
+
+Why. With the database outside, the local run and the container share one set of data. Environment variables take priority over `.env` in `pydantic-settings`, so the code has no branch for the two cases.
+
+Cost. Each run has its own scheduler and both write to the same database, so the local run and the container must not run at the same time.
+
+### ADR-026: the last notified price is the new reference
+
+A product that stays cheap would fire every day. A new detection is written only if the price is below the last price already sent to that user, or if 7 days have passed since that send. The reference is per (product, user), because two users of the same product can be at different points of the series. A fixed cooldown was rejected because it would silence a strong drop. Cost: the rule reads only detections already sent, so two rounds on the same day, before delivery, escape it.
+
+### ADR-027: PostgreSQL with a hand-written schema
+
+The schema lives in `sql/schema.sql`, written by hand. The app does not create tables at startup, and there is no migration tool. I write the DDL myself because that is where I learn the database, and Alembic is out of proportion for a project this size. This replaced the MVP approach of calling `create_all` at startup, which was only acceptable while the database was disposable.
+
+Cost: the schema is described twice, in `sql/schema.sql` and in `app/models/`, and nothing keeps them in sync automatically. Tests are the exception and create the schema with `create_all` on in-memory SQLite.
 
 ## Known limits
 
-Consequences of the current design, not pending work:
-
-- **`ON DELETE` is inert under SQLite.** The constraints are declared and only take effect on
-  Postgres; until then, the deletion order inside the service is what preserves integrity (ADR-007).
-- **The scheduler lives inside the API process.** With more than one web worker there would be one
-  scheduler per process. The separation set up in ADR-020 is what makes that cut cheap when it is
-  needed.
-- **`captured_at` is UTC while day-based cuts use local dates.** The three-hour gap between the two
-  affects which day a late-night capture belongs to.
-- **The scraper treats a block served with HTTP 200 as a missing price.** The hook exists in
-  `base.py`, but no concrete scraper implements it.
+- The scheduler runs inside the API process. More than one web worker would mean more than one scheduler. ADR-020 keeps that split cheap when it is needed.
+- A block page served with HTTP 200 is read as a missing price. The hook (`_is_blocked`) exists in the scraper base, but no site implements it.
+- The log file grows with no rotation.
