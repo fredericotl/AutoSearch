@@ -41,9 +41,8 @@ class Scraper(ABC):
     def _warm_up(self, session):
         pass
 
-    #TODO definir tipo da entrada
     @abstractmethod
-    def parse(self, soup)-> int:
+    def parse(self, soup:BeautifulSoup)-> int | None:
         pass
 
     def get_price(self, url):

@@ -5,6 +5,7 @@ from sqlalchemy.engine import make_url
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 ENV_FILE = BASE_DIR / ".env"
+WINDOW_OF_DAYS: int = 365  # Domain rule. EmailNotifier._LOWEST_PRICE_MSG says "último ano": keep both in sync.
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
@@ -15,7 +16,6 @@ class Settings(BaseSettings):
     sqlalchemy_database_url: str
     log_level: str = Field(default="INFO")
     time_zone: str = Field(default="America/Sao_Paulo")
-    window_of_days: int = 365
 
     @field_validator("sqlalchemy_database_url")
     @classmethod

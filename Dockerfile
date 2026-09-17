@@ -13,7 +13,7 @@ RUN pip install -r requirements.txt
 COPY app ./app
 
 RUN useradd --create-home --uid 1000 appuser \
-    && mkdir -p /code/data /code/logs \
+    && mkdir /code/logs \
     && chown -R appuser:appuser /code
 
 USER appuser

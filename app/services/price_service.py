@@ -5,7 +5,7 @@ from app.schemas import ProductPriceResponse, ProductToScrape
 from app.services.price_window import PriceWindow
 from datetime import date, timedelta, datetime, time
 from app.scraper import get_scraper_for_link
-from app.core import PriceNotFound, now, settings
+from app.core import PriceNotFound, now, WINDOW_OF_DAYS
 from dataclasses import dataclass, field
 
 @dataclass
@@ -18,8 +18,6 @@ class ProductPrices:
     history: list[int] = field(default_factory=list)
     price_today: int | None = None
 
-
-#TODO resolve possiveis redundancias de busca de preços ou coisas do tipo
 def _product_price_by_date(db: Session, product_id: int, check_date: date):
     product_price = db.query(PriceHistory).filter(
         PriceHistory.product_id == product_id,
@@ -62,7 +60,7 @@ def price_str(price: int, currency:str = "R$ ")-> str:
     return f"{currency}{units},{cents:02d}"
 
 def get_prices_by_products(db: Session, product_ids: set[int])-> dict[int, ProductPrices]:
-    window_of_days = settings.window_of_days
+    window_of_days = WINDOW_OF_DAYS
     today = now().date()
     start = datetime.combine(today, time.min) - timedelta(days=window_of_days)
     query = select(PriceHistory.product_id, PriceHistory.price, PriceHistory.captured_at) \

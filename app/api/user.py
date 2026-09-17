@@ -1,5 +1,6 @@
 from typing import Annotated
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from fastapi import Depends,  HTTPException, APIRouter
 from starlette import status
 from app.schemas import ChangePassword, ChangeEmail, UserResponse
@@ -29,5 +30,9 @@ async def change_password(user: user_dependency, db: db_dependency,
 async def change_email(user: user_dependency, db: db_dependency,
                           change_email_request: ChangeEmail):
     change_user_email(db, user.get("id"), change_email_request)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 

@@ -4,7 +4,6 @@ from app.api import auth_router, user_router, product_router
 from app.workers import TasksRound, TaskScheduler
 from app.core import setup_logging
 import app.models
-from app.db import Base, engine
 
 
 HOUR = 3

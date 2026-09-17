@@ -3,12 +3,11 @@ from sqlalchemy import select
 from datetime import timedelta, datetime, time
 from app.models import PriceHistory
 from app.schemas import Criteria
-from app.core import now, settings
+from app.core import now, WINDOW_OF_DAYS
 from statistics import stdev
 
 class PriceWindow:
 
-    WINDOW_OF_DAYS: int =settings.window_of_days
     MINIMUM_DATA_COUNT: int = 7
 
     def __init__(self, minimum, count, prices_sum, standard_deviation):
@@ -21,7 +20,7 @@ class PriceWindow:
     @classmethod
     def from_history(cls, db:Session,  product_id: int):
         today = datetime.combine(now(), time.min)
-        start = today - timedelta(days=cls.WINDOW_OF_DAYS)
+        start = today - timedelta(days=WINDOW_OF_DAYS)
         prices = db.scalars(select(PriceHistory.price)
         .where(PriceHistory.product_id == product_id,
                  PriceHistory.captured_at >= start,

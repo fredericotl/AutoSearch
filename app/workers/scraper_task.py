@@ -1,6 +1,6 @@
 from app.services import (get_all_products, save_product_price_scheduler, save_error,create_detections, PriceWindow)
 from app.db import SessionLocal
-from app.schemas import CreateError, ProductToNotify, ProductToScrape, ErrorSource
+from app.schemas import CreateError, DetectedProduct, ProductToScrape, ErrorSource
 from time import sleep
 from app.core import (ScraperFail, UnsupportedScraper, PriceNotFound, ScraperBlocked,
                                  ScraperUnavailable, ProductGone)
@@ -38,7 +38,7 @@ class ScraperTask:
                 db.commit()
                 criteria = window.evaluate_price_criteria(price_today)
                 if criteria is not None:
-                    product_to_notify = ProductToNotify(
+                    product_to_notify = DetectedProduct(
                         id= product.id,
                         title= product.title,
                         price= price_today,

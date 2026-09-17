@@ -4,7 +4,7 @@ from app.models import User
 from app.schemas  import CreateUser
 
 
-def create_new_user(db: Session, create_user_request: CreateUser):
+def create_new_user(db: Session, create_user_request: CreateUser) -> User:
     create_user_model = User(
         email = create_user_request.email,
         username = create_user_request.username,
@@ -15,6 +15,7 @@ def create_new_user(db: Session, create_user_request: CreateUser):
         role= "default"
     )
     db.add(create_user_model)
+    return create_user_model
 
 def authenticate_user(db: Session, username: str, password: str):
     user = db.query(User).filter(User.username== username).first()

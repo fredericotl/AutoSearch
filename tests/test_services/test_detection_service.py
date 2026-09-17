@@ -2,7 +2,7 @@ from app.services.detection_service import (create_detections, get_pendent_detec
                                             mark_detections_sent)
 from sqlalchemy.orm import Session
 from unittest.mock import MagicMock
-from app.schemas import DetectionNotifyByUser, ProductToNotify
+from app.schemas import DetectionNotifyByUser, DetectedProduct
 from app.schemas.price import Criteria
 from types import SimpleNamespace
 
@@ -10,8 +10,8 @@ def mock_db_session():
     mock_session = MagicMock(spec=Session)
     return mock_session
 
-def mock_product_to_notify(n:int = 1):
-    mock_product = MagicMock(spec=ProductToNotify)
+def mock_detection_product(n:int = 1):
+    mock_product = MagicMock(spec=DetectedProduct)
     mock_product.id = n
     mock_product.title = f"Test Product {n}"
     mock_product.price = 100
@@ -29,7 +29,7 @@ def mock_detection_row(id: int = 1, user_id: int = 10):
 
 def test_create_detections():
     db = mock_db_session()
-    product = mock_product_to_notify()
+    product = mock_detection_product()
     create_detections(db, product)
     assert db.add.call_count == len(product.viewers)
 

@@ -260,5 +260,4 @@ The project runs end to end from a clean clone. The limitations below are intent
 
 **Known gaps**
 
-- 6 of the 61 tests currently fail.
-- Registering a user with an email that already exists returns 500 instead of a clear error.
+- 4 of the 61 tests currently fail.

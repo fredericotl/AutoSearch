@@ -2,7 +2,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from app.core import now
 from app.models import Detection, Product, User
-from app.schemas import DetectionNotifyByUser, ProductToNotify, NotifierInput
+from app.schemas import DetectionNotifyByUser, DetectedProduct, NotifierInput
 from datetime import timedelta
 
 NOTIFICATION_COOLDOWN = timedelta(days=7)
@@ -18,7 +18,7 @@ def _is_detection_pertinent(price_today: int, last_notification):
         return True
     return False
 
-def create_detections(db: Session, product: ProductToNotify):
+def create_detections(db: Session, product: DetectedProduct):
 
     position = func.row_number().over(partition_by=Detection.user_id, order_by=(Detection.sent_at.desc(), Detection.id.desc())).label("position")
     by_product = select(Detection.user_id, Detection.price, Detection.sent_at ,position) \

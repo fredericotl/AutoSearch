@@ -13,7 +13,7 @@ class Product(Base):
     link = Column(String, nullable=False)
     specification = Column(String, nullable=True)
     owner_id = Column(Integer, ForeignKey("users.id", ondelete= "SET NULL"), nullable=True)
-    is_search_active = Column(Boolean, default=True )
+    is_search_active = Column(Boolean, default=True)
     viewers = relationship("User", secondary=product_viewers, back_populates="watching")
 
     owner = relationship(

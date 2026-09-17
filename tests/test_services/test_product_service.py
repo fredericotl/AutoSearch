@@ -1,4 +1,4 @@
-from app.services.product_service import get_watched_products, get_all_products, get_product, get_product_viewers, create_product, remove_product
+from app.services.product_service import get_watched_products, get_all_products, get_product,create_product, remove_product
 from sqlalchemy.orm import Session
 from unittest.mock import MagicMock, patch
 from app.models import Product, User
@@ -46,7 +46,7 @@ def test_get_all_products():
     db = mock_db_session()
     product1 = mock_product()
     product2 = mock_product()
-    db.query.return_value.options.return_value.all.return_value = [product1, product2]
+    db.query.return_value.options.return_value.where.return_value.all.return_value = [product1, product2]
     result = get_all_products(db)
     assert result == [product1, product2]
 
@@ -64,24 +64,6 @@ def test_get_product_not_found():
     db.query.return_value.filter.return_value.first.return_value = None
     with pytest.raises(ProductNotFound) as exinfo:
         get_product(db, 1)
-    assert str(exinfo.value) == "Product Not Found"
-
-def test_get_product_viewers_success():
-    db = mock_db_session()
-    product = mock_product()
-    viewer1 = mock_user(user_id=1)
-    viewer2 = mock_user(user_id=2)
-    product.viewers = [viewer1, viewer2]
-    db.query.return_value.filter.return_value.first.return_value = product
-    result = get_product_viewers(db, 1)
-    assert result == [viewer1, viewer2]
-
-
-def test_get_product_viewers_not_found():
-    db = mock_db_session()
-    db.query.return_value.filter.return_value.first.return_value = None
-    with pytest.raises(ProductNotFound) as exinfo:
-        get_product_viewers(db, 1)
     assert str(exinfo.value) == "Product Not Found"
 
 def test_create_product_success():

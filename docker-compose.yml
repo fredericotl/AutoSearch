@@ -17,9 +17,7 @@ services:
       - "127.0.0.1:8001:8000"
 
     volumes:
-      - autosearch_data:/code/data
       - autosearch_logs:/code/logs
 
 volumes:
-  autosearch_data:
   autosearch_logs:

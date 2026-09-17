@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends,HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from typing import Annotated
 from starlette import status
 from app.db import get_db
-from app.schemas import CreateUser, Token
+from app.schemas import CreateUser, Token, UserResponse
 from app.core import create_access_token, WrongPassword, UserNotFound
 from app.services import create_new_user, authenticate_user
 from fastapi.security import OAuth2PasswordRequestForm
@@ -12,11 +13,15 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 
 db_dependency = Annotated[Session, Depends(get_db)]
 
-@router.post("", status_code= status.HTTP_201_CREATED)
+@router.post("", status_code= status.HTTP_201_CREATED, response_model=UserResponse)
 async def create_user(db: db_dependency, create_user_request: CreateUser):
-    create_new_user(db, create_user_request)
-    db.commit()
-
+    new_user = create_new_user(db, create_user_request)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username or Email already registered")
+    return new_user
 @router.post("/token", response_model=Token)
 async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db:db_dependency):
     try:

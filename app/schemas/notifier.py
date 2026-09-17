@@ -16,11 +16,7 @@ class NotifierInput(BaseModel):
     user_name: str = Field(max_length=100)
     items: list[DetectionNotifyByUser]
 
-class NotifierSender(BaseModel):
-    sender_email: EmailStr
-    sender_password: str =Field(max_length=16, min_length=16)
-
-class ProductToNotify(BaseModel):
+class DetectedProduct(BaseModel):
     id: int
     title: str
     price: int

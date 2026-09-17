@@ -10,9 +10,9 @@ def get_watched_products(db: Session, user_id: int):
     return user.watching
 
 def get_all_products(db: Session):
-    return db.query(Product).options(selectinload(Product.viewers)).all()
+    return db.query(Product).options(selectinload(Product.viewers)).where(Product.is_search_active == True).all()
 
-def get_product(db: Session, product_id: int)-> type[Product]:
+def get_product(db: Session, product_id: int)-> Product:
     product = db.get(Product, product_id)
     if not product:
         raise ProductNotFound(f"Product Not Found")
@@ -49,14 +49,6 @@ def get_watched_products_with_prices(db: Session, user_id: int)-> WatchedProduct
         product_response = _get_product_response(prices=all_prices, product=product)
         products_list.append(product_response)
     return WatchedProductsResponse(products=products_list)
-
-def get_product_viewers(db: Session, product_id: int) -> list[type[User]]:
-    product = get_product(db, product_id)
-    viewers = []
-    for viewer in product.viewers:
-        viewers.append(viewer)
-    return viewers
-
 
 #TODO lidar com links repetidos, escolher se associa a um produto já existente ou apenas informa que existe
 def create_product(db: Session, product_request: CreateProduct, user_id: int):

@@ -35,3 +35,19 @@ def test_change_email_success(test_user):
         "new_email_confirm": "newemail@gmail.com"
     })
     assert response.status_code == 204
+
+def test_change_email_fail(test_user):
+    client.post("/auth", json={
+        "username": "testuser2",
+        "email": "testuser2@gmail.com",
+        "first_name": "Test",
+        "last_name": "User",
+        "password": "12345678",
+        "password_confirm": "12345678"
+    })
+    response = client.put("/user/email", json={
+        "new_email": "testuser2@gmail.com",
+        "new_email_confirm": "testuser2@gmail.com"
+    })
+    assert response.status_code == 409
+    assert  response.json()["detail"] == "Email already registered"
