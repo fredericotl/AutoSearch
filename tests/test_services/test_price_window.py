@@ -38,8 +38,31 @@ def test_price_window_count_minimum():
 def test_price_window_from_history():
     db = mock_db_session()
     db.scalars.return_value.all.return_value = [100,100,100,100,100,100,100,100,100,100]
-    pw = PriceWindow.for_scraper(db, 1)
+    pw = PriceWindow.from_history(db, 1)
     assert pw.count == 10
     assert pw.minimum == 100.0
     assert pw.prices_sum == 1000.0
     assert pw.standard_deviation == 0.0
+
+def test_price_window_from_prices_empty():
+    pw = PriceWindow.from_prices([])
+    assert pw.count == 0
+    assert pw.minimum is None
+    assert pw.prices_sum is None
+    assert pw.standard_deviation is None
+
+
+def test_price_window_from_prices_one():
+    pw = PriceWindow.from_prices([150])
+    assert pw.count == 1
+    assert pw.minimum == 150
+    assert pw.prices_sum == 150
+    assert pw.standard_deviation is None
+
+
+def test_price_window_from_prices_three():
+    pw = PriceWindow.from_prices([100, 200, 300])
+    assert pw.count == 3
+    assert pw.minimum == 100
+    assert pw.prices_sum == 600
+    assert pw.standard_deviation == 100

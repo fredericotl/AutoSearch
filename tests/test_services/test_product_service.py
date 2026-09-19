@@ -1,4 +1,6 @@
-from app.services.product_service import get_watched_products, get_all_products, get_product,create_product, remove_product
+from app.services.product_service import (get_watched_products, get_all_products, get_product,create_product,
+                                          remove_product, _get_product_response)
+from app.services.price_service import ProductPrices
 from sqlalchemy.orm import Session
 from unittest.mock import MagicMock, patch
 from app.models import Product, User
@@ -54,17 +56,39 @@ def test_get_product_success():
     db = mock_db_session()
     product = mock_product()
     product.title = "Test Product"
-    db.query.return_value.filter.return_value.first.return_value = product
+    db.get.return_value = product
     result = get_product(db, 1)
+    db.get.assert_called_once_with(Product, 1)
     assert result == product
     assert result.title == "Test Product"
 
 def test_get_product_not_found():
     db = mock_db_session()
-    db.query.return_value.filter.return_value.first.return_value = None
+    db.get.return_value = None
     with pytest.raises(ProductNotFound) as exinfo:
         get_product(db, 1)
     assert str(exinfo.value) == "Product Not Found"
+
+def test_get_product_response():
+    prices = {1: ProductPrices(history=[100, 300, 200], price_today=150)}
+    product =mock_product()
+    response = _get_product_response(prices=prices, product=product)
+    assert response.id == product.id
+    assert response.title == product.title
+    assert response.link == product.link
+    assert response.specification == product.specification
+    assert response.price_today == "R$ 1,50"
+    assert response.lowest_price == "R$ 1,00"
+    assert response.mean == "R$ 2,00"
+
+def test_get_product_response_none():
+    prices = {1: ProductPrices(history=[], price_today=None)}
+    product =mock_product()
+    response = _get_product_response(prices=prices, product=product)
+    assert response.id == product.id
+    assert response.price_today is None
+    assert response.lowest_price is None
+    assert response.mean is None
 
 def test_create_product_success():
     db = mock_db_session()

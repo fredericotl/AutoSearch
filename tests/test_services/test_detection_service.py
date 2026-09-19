@@ -1,10 +1,12 @@
 from app.services.detection_service import (create_detections, get_pendent_detections_by_user,
-                                            mark_detections_sent)
+                                            mark_detections_sent, _is_detection_pertinent)
 from sqlalchemy.orm import Session
 from unittest.mock import MagicMock
 from app.schemas import DetectionNotifyByUser, DetectedProduct
 from app.schemas.price import Criteria
 from types import SimpleNamespace
+from datetime import timedelta
+from app.core import now
 
 def mock_db_session():
     mock_session = MagicMock(spec=Session)
@@ -26,6 +28,18 @@ def mock_detection_row(id: int = 1, user_id: int = 10):
         title="Notebook", link=f"http://example.com/product/{id}",
         email=f"user@example.com", first_name=f"testuser")
     return row
+
+def test_is_detection_pertinent():
+    assert _is_detection_pertinent(100, None)
+    last_notification = MagicMock()
+    last_notification.price = 100
+    last_notification.sent_at = now() - timedelta(days=3)
+    assert _is_detection_pertinent(99, last_notification)
+    assert not _is_detection_pertinent(100, last_notification)
+    last_notification.sent_at = now() - timedelta(days=8)
+    assert _is_detection_pertinent(100, last_notification)
+    last_notification.sent_at = now() - timedelta(days=7)
+    assert not _is_detection_pertinent(100, last_notification)
 
 def test_create_detections():
     db = mock_db_session()

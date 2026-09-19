@@ -19,9 +19,9 @@ def test_read_all_products(test_product, test_user):
     response = client.get("/products/")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 1
+    assert len(data["products"]) == 1
     assert data["products"][0]["title"] == "Test Product"
-    assert data[0]["specification"] == "This is a test product."
+    assert data["products"][0]["specification"] == "This is a test product."
 
 def test_read_product(test_user, test_product):
     response = client.get(f"/products/{test_product.id}")

@@ -257,7 +257,3 @@ The project runs end to end from a clean clone. The limitations below are intent
 - **One site supported.** Amazon is the only active scraper. A Mercado Livre scraper exists but is disabled, because the site requires a browser-based approach. The scraper is structured so another site can be added as a new implementation rather than a rewrite.
 - **The scheduler runs inside the API process.** It is adequate for local execution and is the first component to change before deployment.
 - **Registration is open and unthrottled.** The API is intended for local use, not public exposure.
-
-**Known gaps**
-
-- 4 of the 61 tests currently fail.
