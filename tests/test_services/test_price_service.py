@@ -136,7 +136,7 @@ def test_build_price_info_empty():
     assert price_info.mean is None
     assert price_info.lowest_price is None
 
-def test_build_price_info_empty():
+def test_build_price_info_round_mean():
     price_info = build_price_info([7, 11, 13])
     assert isinstance(price_info, PriceInfo)
     assert price_info.mean == 'R$ 0,10'

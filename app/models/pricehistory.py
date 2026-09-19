@@ -2,8 +2,6 @@ from app.db import Base
 from sqlalchemy import Column, Integer, ForeignKey, DateTime, Index
 from app.core import now
 
-
-#TODO status de falha e lidar quando produto apagar
 class PriceHistory(Base):
     __tablename__ = 'price_history'
 
