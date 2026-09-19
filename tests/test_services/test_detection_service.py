@@ -36,9 +36,9 @@ def test_is_detection_pertinent():
     last_notification.sent_at = now() - timedelta(days=3)
     assert _is_detection_pertinent(99, last_notification)
     assert not _is_detection_pertinent(100, last_notification)
-    last_notification.sent_at = now() - timedelta(days=8)
-    assert _is_detection_pertinent(100, last_notification)
     last_notification.sent_at = now() - timedelta(days=7)
+    assert _is_detection_pertinent(100, last_notification)
+    last_notification.sent_at = now() - timedelta(days=6)
     assert not _is_detection_pertinent(100, last_notification)
 
 def test_create_detections():

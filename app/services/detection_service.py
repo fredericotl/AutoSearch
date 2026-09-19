@@ -14,7 +14,7 @@ def _is_detection_pertinent(price_today: int, last_notification):
     send_at_delta = now().date() - last_notification.sent_at.date()
     if last_price > price_today:
         return True
-    elif send_at_delta > NOTIFICATION_COOLDOWN:
+    elif send_at_delta >= NOTIFICATION_COOLDOWN:
         return True
     return False
 
