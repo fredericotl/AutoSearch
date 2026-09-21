@@ -29,6 +29,27 @@ def test_read_product(test_user, test_product):
     data = response.json()
     assert data["title"] == "Test Product"
     assert data["specification"] == "This is a test product."
+    assert data["price_today"] is None
+    assert data["lowest_price"] is None
+    assert data["mean"] is None
+
+def test_read_product_with_prices(test_user, test_price_history):
+    product = test_price_history([1000,900,800])
+    response = client.get(f"/products/{product.id}")
+    data = response.json()
+    assert data["lowest_price"] == "R$ 8,00"
+    assert data["price_today"] == "R$ 10,00"
+    assert data["mean"] == "R$ 9,00"
+    assert response.status_code == 200
+
+def test_read_product_with_nulls(test_user, test_price_history):
+    product = test_price_history([1000,None,800])
+    response = client.get(f"/products/{product.id}")
+    data = response.json()
+    assert data["lowest_price"] == "R$ 8,00"
+    assert data["price_today"] == "R$ 10,00"
+    assert data["mean"] == "R$ 9,00"
+    assert response.status_code == 200
 
 def test_read_product_not_found(test_user):
     response = client.get("/products/999")

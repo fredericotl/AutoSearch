@@ -1,4 +1,5 @@
-from six import viewkeys
+from datetime import datetime, time, timedelta
+from app.core import now
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -10,7 +11,7 @@ from app.services.product_service import create_product
 from app.schemas.product import CreateProduct
 import pytest
 
-from app.models import User, Product
+from app.models import User, Product, PriceHistory
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
@@ -65,6 +66,18 @@ def test_product(test_user):
         connection.execute(text("DELETE FROM products;"))
         connection.commit()
 
+@pytest.fixture
+def test_price_history(test_product):
+    db = TestingSessionLocal()
+    base = datetime.combine(now().date(), time.min)
+    def _insert(rows):
+        for i, price in enumerate(rows):
+            db.add(PriceHistory(product_id=test_product.id,
+                                captured_at=base - timedelta(days=i),
+                                price=price))
+        db.commit()
+        return test_product
+    return _insert
 
 
 client = TestClient(app)

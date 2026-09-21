@@ -10,7 +10,6 @@ engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-#TODO atualizar declarative_base()
 Base = declarative_base()
 
 def get_db():
