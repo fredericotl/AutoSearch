@@ -5,9 +5,13 @@ from time import sleep
 from app.core import (ScraperFail, UnsupportedScraper, PriceNotFound, ScraperBlocked,
                                  ScraperUnavailable, ProductGone)
 from sqlalchemy.orm import Session
+import logging
+from time import perf_counter
+import random
 
+logger = logging.getLogger(__name__)
 class ScraperTask:
-    WAIT = 1
+    WAIT_MIN, WAIT_MAX = 1, 2
 
     def _get_all_products(self):
         db = SessionLocal()
@@ -30,8 +34,13 @@ class ScraperTask:
 
     def run(self):
         all_products = self._get_all_products()
+        round_start = perf_counter()
+        failed = 0
+        logger.info("scraping %d products", len(all_products))
         for product in all_products:
             db = SessionLocal()
+            start = perf_counter()
+            outcome = "unexpected"
             try:
                 window = PriceWindow.from_history(db, product.id)
                 price_today = save_product_price_scheduler(db, product)
@@ -48,16 +57,26 @@ class ScraperTask:
                     )
                     create_detections(db, product_to_notify)
                     db.commit()
+                outcome = "ok"
             # TODO identificar site para não repetir mesmo erro
             except (ScraperUnavailable, ProductGone, UnsupportedScraper, ScraperBlocked, PriceNotFound) as e:
                 self._save_error(db, e,product)
                 db.commit()
+                outcome = type(e).__name__
+                failed += 1
             except ScraperFail as e:
                 self._save_error(db, e,product)
                 db.commit()
+                outcome = type(e).__name__
+                failed += 1
             finally:
                 db.close()
-            sleep(self.WAIT)
+                level = logging.INFO if outcome == "ok" else logging.WARNING
+                logger.log(level, "product %s: %s in %.2fs", product.id, outcome, perf_counter() - start)
+            sleep(random.uniform(self.WAIT_MIN, self.WAIT_MAX))
+
+        logger.info("scraping finished: %d products, %d failed, %.2fs",
+                    len(all_products), failed, perf_counter() - round_start)
 
 
 

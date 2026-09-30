@@ -1,11 +1,11 @@
 from apscheduler.schedulers.background import BackgroundScheduler
-
+from app.core.config import settings
 
 class TaskScheduler:
     MISFIRE_GRACE_TIME = 3600 #One Hour
 
     def __init__(self):
-        self.scheduler = BackgroundScheduler()
+        self.scheduler = BackgroundScheduler(timezone=settings.time_zone)
 
     def add_daily(self, job, hour: int, misfire_grace_time: int = MISFIRE_GRACE_TIME):
         self.scheduler.add_job(job, "cron", hour= hour,
