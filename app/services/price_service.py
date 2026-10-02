@@ -1,12 +1,14 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func, select
 from app.models import PriceHistory
-from app.schemas import ProductPriceResponse, ProductToScrape
+from app.schemas import ProductPriceResponse, ProductToScrape, ProductPriceStatus
 from app.services.price_window import PriceWindow
 from datetime import date, timedelta, datetime, time
 from app.scraper import get_scraper_for_link
 from app.core import PriceNotFound, now, WINDOW_OF_DAYS
 from dataclasses import dataclass, field
+from sqlalchemy import func, select, Date
+
 
 @dataclass
 class PriceInfo:
@@ -19,20 +21,27 @@ class ProductPrices:
     price_today: int | None = None
 
 def _product_price_by_date(db: Session, product_id: int, check_date: date):
+    day_start = datetime.combine(check_date, time.min)
+    next_day_start = day_start + timedelta(days=1)
     product_price = db.query(PriceHistory).filter(
         PriceHistory.product_id == product_id,
-        func.date(PriceHistory.captured_at) == check_date).first()
+        PriceHistory.captured_at >= day_start,
+        PriceHistory.captured_at < next_day_start).first()
     if product_price:
-        return  product_price.price
+        return  product_price
     return None
 
 def _capture_price(db: Session, product_model: ProductToScrape) -> ProductPriceResponse:
-    today = date.today()
+    today = now().date()
 
     product_price_today = _product_price_by_date(db, product_model.id, today)
     if product_price_today:
-        return ProductPriceResponse(title=product_model.title, price=product_price_today,
-                                     link=product_model.link, status="from_db")
+        if product_price_today.price is None:
+            return ProductPriceResponse(title=product_model.title, price=None,
+                                 link=product_model.link, status=ProductPriceStatus.NO_PRICE_FOUND)
+        price= product_price_today.price
+        return ProductPriceResponse(title=product_model.title, price=price,
+                                     link=product_model.link, status=ProductPriceStatus.FROM_DB)
 
     scraper = get_scraper_for_link(product_model.link)
     price = scraper.get_price(product_model.link)
@@ -41,7 +50,7 @@ def _capture_price(db: Session, product_model: ProductToScrape) -> ProductPriceR
     db.add(product_price_model)
 
     return ProductPriceResponse(title=product_model.title, price=price, link=product_model.link,
-                                 status="scraped" if price else "no_price_found")
+                                 status=ProductPriceStatus.SCRAPED if price else ProductPriceStatus.NO_PRICE_FOUND)
 
 
 def save_product_price_api(db: Session, product_model: ProductToScrape) -> ProductPriceResponse:
@@ -50,7 +59,7 @@ def save_product_price_api(db: Session, product_model: ProductToScrape) -> Produ
 
 def save_product_price_scheduler(db: Session, product_model: ProductToScrape) -> int:
     result = _capture_price(db, product_model)
-    if result.status == "no_price_found":
+    if result.status == ProductPriceStatus.NO_PRICE_FOUND:
         raise PriceNotFound("Price Not Found")
     return result.price
 
@@ -63,15 +72,17 @@ def get_prices_by_products(db: Session, product_ids: set[int])-> dict[int, Produ
     window_of_days = WINDOW_OF_DAYS
     today = now().date()
     start = datetime.combine(today, time.min) - timedelta(days=window_of_days)
-    query = select(PriceHistory.product_id, PriceHistory.price, PriceHistory.captured_at) \
+    captured_day = func.date(PriceHistory.captured_at, type_=Date)
+    query = (select(PriceHistory.product_id, func.min(PriceHistory.price), captured_day) \
             .where(PriceHistory.product_id.in_(product_ids),
                    PriceHistory.price.is_not(None),
                    PriceHistory.captured_at >= start)
+             .group_by(PriceHistory.product_id, captured_day))
     rows = db.execute(query).fetchall()
     prices = {product_id: ProductPrices() for product_id in product_ids}
-    for product_id, price, captured_at in rows:
+    for product_id, price, captured_day in rows:
         prices[product_id].history.append(price)
-        if captured_at.date() == today:
+        if captured_day == today:
             prices[product_id].price_today = price
     return prices
 
@@ -81,5 +92,6 @@ def build_price_info(prices:list[int]) -> PriceInfo:
     mean = window.mean()
     if lowest_price is not None:
         lowest_price = price_str(lowest_price)
+    if mean is not None:
         mean = price_str(int(mean))
     return PriceInfo(lowest_price=lowest_price, mean=mean)

@@ -5,12 +5,13 @@ from app.models import PriceHistory
 from app.schemas import Criteria
 from app.core import now, WINDOW_OF_DAYS
 from statistics import stdev
+from sqlalchemy import select, func
 
 class PriceWindow:
 
     MINIMUM_DATA_COUNT: int = 7
 
-    def __init__(self, minimum, count, prices_sum, standard_deviation):
+    def __init__(self, *, minimum: int | None, count: int, prices_sum: int | None, standard_deviation: float | None):
         self.count = count
         self.minimum = minimum
         self.prices_sum = prices_sum
@@ -21,11 +22,13 @@ class PriceWindow:
     def from_history(cls, db:Session,  product_id: int):
         today = datetime.combine(now(), time.min)
         start = today - timedelta(days=WINDOW_OF_DAYS)
-        prices = db.scalars(select(PriceHistory.price)
+        captured_day = func.date(PriceHistory.captured_at)
+        prices = db.scalars(select(func.min(PriceHistory.price))
         .where(PriceHistory.product_id == product_id,
                  PriceHistory.captured_at >= start,
                  PriceHistory.captured_at < today,
-                 PriceHistory.price.is_not(None))).all()
+                 PriceHistory.price.is_not(None))
+        .group_by(captured_day)).all()
         return cls.from_prices(list(prices))
 
     @classmethod

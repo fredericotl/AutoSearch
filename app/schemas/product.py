@@ -1,6 +1,12 @@
 from pydantic import BaseModel, Field, HttpUrl,ConfigDict
-from typing import Optional, Literal
+from typing import Optional
 from app.schemas.user import ViewerRef
+from enum import Enum
+
+class ProductPriceStatus(str, Enum):
+    FROM_DB = "from_db"
+    SCRAPED = "scraped"
+    NO_PRICE_FOUND = "no_price_found"
 
 class CreateProduct(BaseModel):
     title: str = Field(min_length=5, max_length=100)
@@ -31,7 +37,7 @@ class ProductPriceResponse(BaseModel):
     title: str | None
     price: int | None
     link: str
-    status: Literal["from_db","scraped","no_price_found"]
+    status: ProductPriceStatus
 
 class ProductToScrape(BaseModel):
     model_config = ConfigDict(from_attributes=True)

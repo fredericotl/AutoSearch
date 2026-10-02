@@ -1,6 +1,6 @@
 from app.services.price_service import (save_product_price_api, save_product_price_scheduler, price_str,
                                         build_price_info, PriceInfo, ProductPrices, get_prices_by_products)
-from app.schemas import ProductPriceResponse, ProductToScrape
+from app.schemas import ProductPriceResponse, ProductToScrape, ProductPriceStatus
 from app.core import PriceNotFound
 from app.core import now
 from unittest.mock import MagicMock, patch
@@ -33,7 +33,7 @@ def test_save_product_price_api_from_db():
     assert isinstance(result, ProductPriceResponse)
     assert result.title == "Test Product"
     assert result.link == "https://amazon.com/dp/B001"
-    assert result.status == "from_db"
+    assert result.status == ProductPriceStatus.FROM_DB
     assert result.price == 100.0
 
 def test_save_product_price_api_scraped():
@@ -54,8 +54,29 @@ def test_save_product_price_api_scraped():
         assert isinstance(result, ProductPriceResponse)
         assert result.title == "Test Product"
         assert result.link == "https://amazon.com/dp/B001"
-        assert result.status == "scraped"
+        assert result.status == ProductPriceStatus.SCRAPED
         assert result.price == 100.0
+
+def test_save_product_price_api_null_price_today():
+    db = mock_db_session()
+    product_model = mock_product()
+    product_to_scrape = ProductToScrape(id=product_model.id, title=product_model.title, link=product_model.link,
+                                        viewers=[])
+
+    db.query.return_value.filter.return_value.first.return_value = PriceHistory(product_id=product_model.id, price=None)
+
+    with patch('app.services.price_service.get_scraper_for_link') as mock_get_scraper:
+        mock_scraper = MagicMock()
+        mock_scraper.get_price.return_value = 100.0
+        mock_get_scraper.return_value = mock_scraper
+
+        result = save_product_price_api(db, product_to_scrape)
+
+        assert isinstance(result, ProductPriceResponse)
+        assert result.title == "Test Product"
+        assert result.link == "https://amazon.com/dp/B001"
+        assert result.status == ProductPriceStatus.NO_PRICE_FOUND
+        assert result.price is None
 
 def test_save_product_price_scheduler_success():
     db = mock_db_session()
@@ -88,6 +109,22 @@ def test_save_product_price_scheduler_no_price():
         with pytest.raises(PriceNotFound):
             save_product_price_scheduler(db, product_to_scrape)
 
+def test_save_product_price_scheduler_null_price_today():
+    db = mock_db_session()
+    product_model = mock_product()
+    product_to_scrape = ProductToScrape(id=product_model.id, title=product_model.title, link=product_model.link,
+                                        viewers=[])
+
+    db.query.return_value.filter.return_value.first.return_value = PriceHistory(product_id=product_model.id, price=None)
+
+    with patch('app.services.price_service.get_scraper_for_link') as mock_get_scraper:
+        mock_scraper = MagicMock()
+        mock_scraper.get_price.return_value = 14999
+        mock_get_scraper.return_value = mock_scraper
+
+        with pytest.raises(PriceNotFound):
+            save_product_price_scheduler(db, product_to_scrape)
+
 def test_price_str():
     price1 = price_str(15677)
     price2 = price_str(1567700)
@@ -104,25 +141,24 @@ def test_get_prices_by_products():
     prices = get_prices_by_products(db, {1})
     assert prices == {1: ProductPrices(history=[], price_today=None)}
     db.execute.return_value.fetchall.return_value = [
-        (1, 150, now() - timedelta(days=2)),
-        (1, 100, now()),]
+        (1, 150, (now() - timedelta(days=2)).date()),
+        (1, 100, now().date()),]
     prices = get_prices_by_products(db, {1})
     assert prices == {1: ProductPrices(history=[150, 100], price_today=100)}
     prices = get_prices_by_products(db, {1,2})
     assert prices == {1: ProductPrices(history=[150, 100], price_today=100), 2: ProductPrices(history=[], price_today=None)}
     db.execute.return_value.fetchall.return_value = [
-        (1, 150, now() - timedelta(days=2)),
-        (1, 100, now()),
-        (2, 200, now()),]
+        (1, 150, (now() - timedelta(days=2)).date()),
+        (1, 100, now().date()),
+        (2, 200, now().date()),]
     prices = get_prices_by_products(db, {1,2})
     assert prices == {1: ProductPrices(history=[150, 100], price_today=100), 2: ProductPrices(history=[200], price_today=200)}
     db.execute.return_value.fetchall.return_value = [
-        (1, 150, now() - timedelta(days=2)),
-        (1, 100, now()),
-        (2, 200, now()- timedelta(days=2)),]
+        (1, 150, (now() - timedelta(days=2)).date()),
+        (1, 100, now().date()),
+        (2, 200, (now()- timedelta(days=2)).date()),]
     prices = get_prices_by_products(db, {1, 2})
     assert prices == {1: ProductPrices(history=[150, 100], price_today=100), 2: ProductPrices(history=[200], price_today=None)}
-
 
 def test_build_price_info():
     price_info = build_price_info([100, 200, 300])

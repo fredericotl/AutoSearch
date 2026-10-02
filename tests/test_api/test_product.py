@@ -57,6 +57,16 @@ def test_read_product_not_found(test_user):
     data = response.json()
     assert data["detail"] == "Product Not Found"
 
+def test_read_product_two_prices_same_day(test_user, test_price_history):
+    test_price_history([1000,900,800])
+    product = test_price_history([700])
+    response = client.get(f"/products/{product.id}")
+    data = response.json()
+    assert data["lowest_price"] == "R$ 7,00"
+    assert data["price_today"] == "R$ 7,00"
+    assert data["mean"] == "R$ 8,00"
+    assert response.status_code == 200
+
 def test_unfollow_product(test_user, test_product):
     response = client.delete(f"/products/{test_product.id}")
     assert response.status_code == 204
