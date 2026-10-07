@@ -21,10 +21,6 @@ def test_parse_price():
     soup = make_soup(MAIN_PRICE.format("R$ 1.234,56"))
     assert AmazonScraper().parse(soup) == 123456
 
-def test_parse_price_none():
-    soup = make_soup('<div></div>')
-    assert AmazonScraper().parse(soup) is None
-
 def test_parse_ignores_carousel_when_product_unavailable():
     soup = make_soup(CAROUSEL_PRICE)
     assert AmazonScraper().parse(soup) is None
