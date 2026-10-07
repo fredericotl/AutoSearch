@@ -3,8 +3,10 @@ import re
 
 class AmazonScraper(Scraper):
     def parse(self, soup) -> int|None:
-        price = soup.find("span", class_="a-offscreen")
+        price = soup.select_one("#corePrice_feature_div .apex-pricetopay-value .a-offscreen")
         if price is None:
             return None
-        price_int = int(re.sub('[^0-9]', '', price.text))
-        return price_int
+        digits = re.sub('[^0-9]', '', price.text)
+        if not digits:
+            return None
+        return int(digits)
