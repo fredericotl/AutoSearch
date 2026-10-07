@@ -1,6 +1,8 @@
 from app.core import get_current_user
 from app.db import get_db
 from tests.test_api.utils import *
+from app.core import get_current_user, WINDOW_OF_DAYS
+
 
 app.dependency_overrides[get_db] = override_get_db
 app.dependency_overrides[get_current_user] = override_get_current_user
@@ -74,3 +76,25 @@ def test_unfollow_product(test_user, test_product):
     response = client.delete(f"/products/{test_product.id}")
     assert response.status_code == 404
 
+def test_lowest_price_never_above_today(test_user, test_price_history):
+    product = test_price_history([700, 900, 800])
+    response = client.get(f"/products/{product.id}")
+    data = response.json()
+    assert response.status_code == 200
+    assert data["price_today"] == "R$ 7,00"
+    assert data["lowest_price"] == data["price_today"]
+
+def test_same_prices_in_both_routes(test_user, test_price_history):
+    product = test_price_history([1000, 900, 800])
+    one = client.get(f"/products/{product.id}").json()
+    listed = client.get("/products/").json()["products"]
+    assert one["lowest_price"] is not None
+    assert len(listed) == 1
+    assert listed[0] == one
+
+def test_price_outside_window_ignored(test_user, test_price_history):
+    test_price_history([1000, 900])
+    product = test_price_history([100], days_ago=WINDOW_OF_DAYS + 1)
+    data = client.get(f"/products/{product.id}").json()
+    assert data["lowest_price"] == "R$ 9,00"
+    assert data["mean"] == "R$ 9,50"

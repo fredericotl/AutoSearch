@@ -70,10 +70,10 @@ def test_product(test_user):
 def test_price_history(test_product):
     db = TestingSessionLocal()
     base = datetime.combine(now().date(), time.min)
-    def _insert(rows):
+    def _insert(rows, days_ago: int = 0):
         for i, price in enumerate(rows):
             db.add(PriceHistory(product_id=test_product.id,
-                                captured_at=base - timedelta(days=i),
+                                captured_at=base - timedelta(days=days_ago + i),
                                 price=price))
         db.commit()
         return test_product
