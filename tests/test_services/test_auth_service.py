@@ -19,8 +19,9 @@ def test_create_new_user():
         last_name = "User",
         password = "password123",
         password_confirm= "password123",
+        token= "abcdefghijklmnop",
     )
-    create_new_user(db, create_user_request)
+    create_new_user(db, create_user_request, "admin")
     user_arg = db.add.call_args[0][0]
 
     assert user_arg.email == create_user_request.email
@@ -28,6 +29,7 @@ def test_create_new_user():
     assert user_arg.first_name == create_user_request.first_name
     assert user_arg.last_name == create_user_request.last_name
     assert user_arg.is_active == True
+    assert user_arg.role == "admin"
     assert is_password_equal(create_user_request.password, user_arg.hashed_password)
 
 def test_authenticate_user_success():

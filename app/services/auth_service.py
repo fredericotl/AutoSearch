@@ -1,10 +1,9 @@
 from sqlalchemy.orm import Session
 from app.core import is_password_equal, hash_password, WrongPassword, UserNotFound
 from app.models import User
-from app.schemas  import CreateUser
+from app.schemas  import CreateUser, UserRole
 
-
-def create_new_user(db: Session, create_user_request: CreateUser) -> User:
+def create_new_user(db: Session, create_user_request: CreateUser, role:UserRole) -> User:
     create_user_model = User(
         email = create_user_request.email,
         username = create_user_request.username,
@@ -12,7 +11,7 @@ def create_new_user(db: Session, create_user_request: CreateUser) -> User:
         last_name = create_user_request.last_name,
         hashed_password = hash_password(create_user_request.password),
         is_active = True,
-        role= "default"
+        role= role
     )
     db.add(create_user_model)
     return create_user_model

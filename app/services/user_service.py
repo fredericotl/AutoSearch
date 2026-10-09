@@ -1,10 +1,14 @@
 from sqlalchemy.orm import Session
 from app.models import User
 from app.schemas import ChangePassword, ChangeEmail
-from app.core import  is_password_equal, hash_password, WrongPassword
+from app.core import  is_password_equal, hash_password, WrongPassword, UserNotFound
+
 
 def find_user(db: Session, user_id:int):
-    return db.query(User).filter(User.id == user_id).first()
+    user = db.get(User, user_id)
+    if not user:
+        raise UserNotFound(f"User Not Found")
+    return user
 
 def change_user_password(db: Session, user_id:int, change_password_request: ChangePassword):
     user_model = find_user(db, user_id)

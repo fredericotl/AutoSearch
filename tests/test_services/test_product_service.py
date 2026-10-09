@@ -40,8 +40,9 @@ def test_get_watched_products():
     product1 = mock_product()
     product2 = mock_product()
     user.watching = [product1, product2]
-    db.get.return_value = user
-    result = get_watched_products(db, 1)
+    with patch('app.services.product_service.find_user', return_value=user):
+        result = get_watched_products(db, 1)
+    assert result == [product1, product2]
     assert result == [product1, product2]
 
 def test_get_all_products():
@@ -98,25 +99,18 @@ def test_create_product_success():
         specification="New Specification"
     )
     owner = mock_user(1)
-    db.get.return_value = owner
 
-    with patch('app.services.product_service.Product') as MockProduct:
-        mock_product_instance = MagicMock(spec=Product)
-        mock_product_instance.title = "New Product"
-        mock_product_instance.link = "http://example.com/product/new"
-        mock_product_instance.specification = "New Specification"
-        mock_product_instance.owner_id = 1
-        mock_product_instance.viewers = [owner]
-
-        MockProduct.return_value = mock_product_instance
-
+    with patch('app.services.product_service.Product') as MockProduct, \
+         patch('app.services.product_service.find_user', return_value=owner):
         result = create_product(db, product_request, 1)
 
-        MockProduct.assert_called_once()
-        assert result.title == "New Product"
-        assert result.owner_id == 1
-        assert db.add.called
-
+    MockProduct.assert_called_once_with(title="New Product",
+                                        link=str(product_request.link),
+                                        specification="New Specification",
+                                        owner_id=1,
+                                        viewers=[owner])
+    assert result is MockProduct.return_value
+    db.add.assert_called_once_with(result)
 
 def test_remove_product_user_not_follower():
     db = mock_db_session()
@@ -125,11 +119,9 @@ def test_remove_product_user_not_follower():
     other_user = mock_user(2)
 
     product.viewers = [other_user]
-    db.get.return_value = user
 
-    with pytest.raises(UserNotFollow):
+    with patch('app.services.product_service.find_user', return_value=user), pytest.raises(UserNotFollow):
         remove_product(db, product, 1)
-
 
 def test_remove_product_last_viewer_deletes():
     db = mock_db_session()
@@ -138,9 +130,9 @@ def test_remove_product_last_viewer_deletes():
 
     product.viewers = [user]
     product.id = 1
-    db.get.return_value = user
 
-    with patch('app.services.product_service.remove_detections') as mock_remove_det:
+    with patch('app.services.product_service.find_user', return_value=user), \
+            patch('app.services.product_service.remove_detections') as mock_remove_det:
         remove_product(db, product, 1)
         mock_remove_det.assert_called_once_with(db, 1)
         db.delete.assert_called_once_with(product)
@@ -154,9 +146,9 @@ def test_remove_product_multiple_viewers_removes_user():
 
     product.viewers = [user1, user2]
     product.owner_id = 1
-    db.get.return_value = user1
 
-    remove_product(db, product, 1)
+    with patch('app.services.product_service.find_user', return_value=user1):
+        remove_product(db, product, 1)
 
     assert user1 not in product.viewers
     db.delete.assert_not_called()
@@ -171,9 +163,9 @@ def test_remove_product_user_is_owner():
 
     product.viewers = [user1, user2]
     product.owner_id = 1
-    db.get.return_value = user1
 
-    remove_product(db, product, 1)
+    with patch('app.services.product_service.find_user', return_value=user1):
+        remove_product(db, product, 1)
 
     assert product.owner_id is None
     assert user1 not in product.viewers

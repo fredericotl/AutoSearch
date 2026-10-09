@@ -58,7 +58,11 @@ class EmptyNotification(NotifierFail):
     """Notifier with 0 items."""
     pass
 
+class InvalidInvite(Exception):
+    """Invalid invite token"""
+    pass
+
 __all__ = ["ProductNotFound", "ScraperFail", "ScraperUnavailable", "ProductGone",
            "ScraperBlocked", "PriceNotFound", "UnsupportedScraper", "UserNotFound","UserNotFollow",
            "WrongPassword", "NotifierFail", "SenderNotAuthenticated", "NotifierUnreachable", "RecipientRefused",
-           "EmptyNotification"]
+           "EmptyNotification", "InvalidInvite"]

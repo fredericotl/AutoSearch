@@ -3,7 +3,7 @@ import pytest
 
 def test_create_user_valid():
     base = {"username": "fred", "email":"fred@example.com", "first_name":"Fred", "last_name":"Leite",
-            "password":"password123", "password_confirm":"password123"}
+            "password":"password123", "password_confirm":"password123", "token":"abcdefghijklmnop"}
     assert CreateUser(**base) is not None
 
 def test_create_user_invalid_password_confirm():

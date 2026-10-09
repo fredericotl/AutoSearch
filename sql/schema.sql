@@ -13,6 +13,16 @@ CREATE TABLE users (
 	PRIMARY KEY(id)
 );
 
+CREATE TABLE invites (
+	id SERIAL,
+	token_hash TEXT NOT NULL UNIQUE,
+	invited_role TEXT NOT NULL,
+	email TEXT NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+	used BOOLEAN NOT NULL,
+	PRIMARY KEY(id)
+);
+
 CREATE TABLE products (
 	id SERIAL,
 	title TEXT NOT NULL,

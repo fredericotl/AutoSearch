@@ -71,9 +71,9 @@ Each package in `app/` exposes its public names through `__init__.py`.
 
 1. The facade exposes what crosses the package boundary, and nothing else.
 2. Code inside a package imports by module, never through its own facade. Going through the facade closes a cycle with `__init__.py`.
-3. A public name belongs to one facade. Repeated names get aliases (the three `router` objects become `auth_router`, `user_router` and `product_router`).
+3. A public name belongs to one facade. Repeated names get aliases (the four `router` objects become `auth_router`, `user_router`, `product_router` and `admin_router`).
 
-Private functions (leading `_`) never enter a facade.
+4. Private functions (leading `_`) never enter a facade.
 
 ## Decisions
 
@@ -81,7 +81,7 @@ Each decision states what was chosen and why. The numbering has gaps because ear
 
 ### ADR-003: authorization belongs to the edge
 
-`require_admin` lives in `core/security.py` and routes declare it through `Depends`. Workers call services directly and skip access control, since authorization exists for external actors. Code that queried the database moved from `core/` to `services/`, and security functions receive plain values (`username`, `user_id`, `user_role`) instead of the `User` entity.
+`get_admin` lives in `core/security.py` and routes declare it through `Depends`. Workers call services directly and skip access control, since authorization exists for external actors. Code that queried the database moved from `core/` to `services/`, and security functions receive plain values (`username`, `user_id`, `user_role`) instead of the `User` entity.
 
 ### ADR-007: a product is public
 
@@ -109,7 +109,7 @@ Two pairs of services handle the same entity at different moments: `product_serv
 
 ### ADR-014: the price window is computed from history
 
-There is no aggregate table. A sliding window changes when the clock moves, even with no new write, and `min` does not survive the removal of old points. The window length comes from settings (`WINDOW_OF_DAYS`, 365 by default).
+There is no aggregate table. A sliding window changes when the clock moves, even with no new write, and `min` does not survive the removal of old points. “The window length is a domain constant (WINDOW_OF_DAYS, 365 days).”
 
 Detection excludes the current day, so it gives the same answer whether the API or the worker wrote today's price. The API read keeps the current day, because the screen compares today's price with the window that contains it.
 
@@ -124,7 +124,7 @@ Users do not configure what "cheap" means, because they do not have the price se
 1. `LOWEST_PRICE`: today's price is below the window minimum.
 2. `LOWER_BOUND`: today's price is at or below the mean minus one standard deviation.
 
-Both require at least 7 captures in the window. The order of the checks is the precedence rule. The criterion is stored in `detections` as a record of what happened.
+Both require 7 days of price history in the window. The order of the checks is the precedence rule. The criterion is stored in `detections` as a record of what happened.
 
 ### ADR-017: detections are handed over through a table
 
@@ -199,8 +199,14 @@ The schema lives in `sql/schema.sql`, written by hand. The app does not create t
 
 Cost: the schema is described twice, in `sql/schema.sql` and in `app/models/`, and nothing keeps them in sync automatically. Tests are the exception and create the schema with `create_all` on in-memory SQLite.
 
+
+### ADR-033: registration requires an invite
+
+Registration needs an invite, created by an admin at `POST /admin/invites`. The invite is bound to one email and one role, expires after one day, and can be used once. The database stores only the SHA-256 hash of the token. Without this control, the API could not be exposed on the network.
+
+Cost: the first admin cannot be created through the API. It is created from the terminal (`python -m app.workers.create_admin`), on a machine with access to the database.
+
 ## Known limits
 
 - The scheduler runs inside the API process. More than one web worker would mean more than one scheduler. ADR-020 keeps that split cheap when it is needed.
 - A block page served with HTTP 200 is read as a missing price. The hook (`_is_blocked`) exists in the scraper base, but no site implements it.
-- The log file grows with no rotation.

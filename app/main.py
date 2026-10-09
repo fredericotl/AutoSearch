@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from app.api import auth_router, user_router, product_router
+from app.api import auth_router, user_router, product_router,admin_router
 from app.workers import TasksRound, TaskScheduler
 from app.core import setup_logging
 import app.models
@@ -23,3 +23,4 @@ app = FastAPI(lifespan=lifespan)
 app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(product_router)
+app.include_router(admin_router)

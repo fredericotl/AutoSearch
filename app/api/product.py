@@ -2,7 +2,7 @@ from typing import Annotated
 from sqlalchemy.orm import Session
 from fastapi import Depends, Path, HTTPException, APIRouter
 from starlette import status
-from app.core import get_current_user, ScraperFail, ProductNotFound, UserNotFollow, UnsupportedScraper
+from app.core import get_current_user, ScraperFail, ProductNotFound, UserNotFollow, UnsupportedScraper, UserNotFound
 from app.db import get_db
 from app.schemas import (CreateProduct, CreateProductResponse,
                          ProductResponse, ProductPriceResponse, ProductToScrape, WatchedProductsResponse)
@@ -15,7 +15,11 @@ user_dependency = Annotated[dict, Depends(get_current_user)]
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=WatchedProductsResponse)
 async  def read_all(user: user_dependency, db: db_dependency):
-    return get_watched_products_with_prices(db, user.get("id"))
+    try:
+        products = get_watched_products_with_prices(db, user.get("id"))
+    except UserNotFound as e:
+        raise HTTPException(status_code=401, detail=str(e))
+    return products
 
 @router.get("/{product_id}", status_code=status.HTTP_200_OK, response_model=ProductResponse)
 async def read_product(user: user_dependency, db: db_dependency, product_id: int = Path(gt=0)):
@@ -26,7 +30,10 @@ async def read_product(user: user_dependency, db: db_dependency, product_id: int
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=CreateProductResponse)
 async  def create_new_product(user: user_dependency, db: db_dependency, product_request: CreateProduct):
-    product = create_product(db, product_request, user.get("id"))
+    try:
+        product = create_product(db, product_request, user.get("id"))
+    except UserNotFound as e:
+        raise HTTPException(status_code=401, detail=str(e))
     db.commit()
     return product
 
@@ -42,6 +49,8 @@ async def unfollow_product(user: user_dependency, db: db_dependency, product_id 
         raise HTTPException(404, str(e))
     except UserNotFollow as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except UserNotFound as e:
+        raise HTTPException(status_code=401, detail=str(e))
 
 @router.post("/{product_id}/save-price", status_code=status.HTTP_201_CREATED, response_model=ProductPriceResponse)
 async  def update_product_price(user: user_dependency, db: db_dependency, product_id: int):

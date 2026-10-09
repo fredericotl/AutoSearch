@@ -3,4 +3,5 @@ from app.models.user import User
 from app.models.pricehistory import PriceHistory
 from app.models.error import Error
 from app.models.detection import Detection
-__all__ = ["Product", "User", "PriceHistory","Error", "Detection"]
+from app.models.invite import Invite
+__all__ = ["Product", "User", "PriceHistory","Error", "Detection", "Invite"]

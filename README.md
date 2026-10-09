@@ -15,7 +15,7 @@ A scheduled job runs once a day. For each registered product, it captures the cu
 **ScraperTask**
 
 1. **Fetch + parse**: loads the product page and extracts the price.
-2. **Store**: records the captured price in `price_history`.
+2. **Store**: records at most one price per product per day in `price_history`.
 3. **Evaluate**: compares today's price with the last 365 days. When a criterion fires, writes one `detections` row per interested user.
 
 **NotifierTask**
@@ -25,7 +25,7 @@ A scheduled job runs once a day. For each registered product, it captures the cu
 
 The `detections` table is the only shared state between the tasks; neither references the other.
 
-Two criteria are evaluated, in this order, once a product has at least 7 captures:
+Two criteria are evaluated, in this order, once a product has at least 7 days of price history:
 
 | Criterion | Fires when today's price is |
 |---|---|
@@ -103,7 +103,14 @@ Settings are loaded at import time, so the application will not start with a mis
 | `SENDER_PASSWORD` | Gmail app password, exactly 16 characters |
 | `LOG_LEVEL` | Optional, defaults to `INFO` |
 | `TIME_ZONE` | Optional, defaults to `America/Sao_Paulo` |
-| `WINDOW_OF_DAYS` | Optional, defaults to `365` |
+
+### First admin
+
+Registration requires an invite, and only an admin can create one. The first admin is created from the terminal:
+
+```bash
+python -m app.workers.create_admin
+```
 
 ### Run locally
 
@@ -131,18 +138,34 @@ The API is available at `http://localhost:8001/docs`. The container uses the Pos
 > [!WARNING]
 > Do not run the local API and the container at the same time. Each one has its own scheduler, and both write to the same database.
 
-### First requests
+### Registration
 
-The order matters: register a user and request a token, then register a product. Every route outside `/auth` requires the token.
+Every route outside `/auth` requires a token, so an account comes first. Accounts are created by invite:
 
-#### Auth
+```text
+Admin   POST /auth/token     ──▶ admin token
+        POST /admin/invites  ──▶ invite token, shared with the new user
+
+User    POST /auth           ──▶ account, created with the invite token
+        POST /auth/token     ──▶ user token
+```
+
+### Routes
+
+#### Auth (no token)
 
 | Method | Route | What it does |
 |---|---|---|
-| `POST` | `/auth` | Register a user |
+| `POST` | `/auth` | Register a user with an invite token |
 | `POST` | `/auth/token` | Get a JWT |
 
-#### User
+#### Admin (admin token)
+
+| Method | Route | What it does |
+|---|---|---|
+| `POST` | `/admin/invites` | Create a single-use invite for an email|
+
+#### User (user token)
 
 | Method | Route | What it does |
 |---|---|---|
@@ -150,7 +173,7 @@ The order matters: register a user and request a token, then register a product.
 | `PUT` | `/user/password` | Change your password |
 | `PUT` | `/user/email` | Change your email |
 
-#### Products
+#### Products (user token)
 
 | Method | Route | What it does |
 |---|---|---|
@@ -166,18 +189,18 @@ The order matters: register a user and request a token, then register a product.
 
 Each layer owns one concern and depends only downward. Business rules live in `services/`, allowing the API and background workers to reuse the same logic.
 
-| Module | Responsibility |
-|---|---|
-| `api/` | HTTP routes: validate input, delegate, and translate domain errors into responses |
-| `schemas/` | Pydantic contracts for API input/output and layer boundaries |
-| `models/` | ORM entities, columns, relationships, and constraints |
-| `services/` | Business rules shared by the API and workers |
-| `scraper/` | Fetching and parsing product pages, with one implementation per site |
-| `notifier/` | Message composition and delivery through an external channel |
-| `workers/` | Scheduled scraping and notification tasks |
-| `db/` | Engine, session, and declarative base |
-| `core/` | Configuration, clock, logging, security, and domain exceptions |
-| `main.py` | Composition: routers and the daily round |
+| Module | Responsibility                                                                      |
+|---|-------------------------------------------------------------------------------------|
+| `api/` | HTTP routes: validate input, delegate, and translate domain errors into responses   |
+| `schemas/` | Pydantic contracts for API input/output and layer boundaries                        |
+| `models/` | ORM entities, columns, relationships, and constraints                               |
+| `services/` | Business rules shared by the API and workers                                        |
+| `scraper/` | Fetching and parsing product pages, with one implementation per site                |
+| `notifier/` | Message composition and delivery through an external channel                        |
+| `workers/` | Scheduled scraping, notification tasks and the command that creates the first admin |
+| `db/` | Engine, session, and declarative base                                               |
+| `core/` | Configuration, clock, logging, security, and domain exceptions                      |
+| `main.py` | Composition: routers and the daily round                                            |
 
 ```text
 api      ──▶ services ──▶ models / db
@@ -221,6 +244,17 @@ python -m pytest -q
 
 The tests create their own schema on in-memory SQLite, so they do not need PostgreSQL.
 
+The suite mirrors `app/`, one folder per layer:
+
+| Folder | What it covers |
+|---|---|
+| `test_services/` | Business rules: price window and criteria, repeated-notification rule, invites, product lifecycle |
+| `test_api/` | Routes through FastAPI's `TestClient`: status codes, authentication, invite registration, price reads |
+| `test_scraper/` | Price parsing on minimal HTML, including unavailable products and carousel prices |
+| `test_notifier/` | Email subject and body, and translation of SMTP errors into domain errors |
+| `test_workers/` | A failing product does not abort the round, and the notifier runs even when scraping fails |
+| `test_core/`, `test_schemas/` | Clock, settings, tokens and input validation |
+
 ### Keeping the schema in sync
 
 The schema is described twice, in `sql/schema.sql` and in `app/models/`. To compare them, create a throwaway database from the models with `Base.metadata.create_all`, then diff both schemas:
@@ -256,4 +290,4 @@ The project runs end to end from a clean clone. The limitations below are intent
 
 - **One site supported.** Amazon is the only active scraper. A Mercado Livre scraper exists but is disabled, because the site requires a browser-based approach. The scraper is structured so another site can be added as a new implementation rather than a rewrite.
 - **The scheduler runs inside the API process.** It is adequate for local execution and is the first component to change before deployment.
-- **Registration is open and unthrottled.** The API is intended for local use, not public exposure.
+- **Login is not throttled.** The API is intended for local use, not public exposure.

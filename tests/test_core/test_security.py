@@ -1,6 +1,8 @@
+from datetime import datetime, timezone, timedelta
 from jose import jwt
 from app.core.security import (is_password_equal, hash_password, create_access_token,
-                               SECRET_KEY, ALGORITHM, get_current_user)
+                               SECRET_KEY, ALGORITHM, get_current_user, get_admin,
+                               create_invite_token, hash_invite_token)
 import pytest
 from fastapi import HTTPException
 
@@ -56,3 +58,35 @@ async  def test_get_current_user_invalid_token():
         await get_current_user("invalidtoken")
     assert  excinfo.value.status_code == 401
     assert  excinfo.value.detail == "Authentication Failed"
+
+@pytest.mark.asyncio
+async  def test_get_current_user_expired_token():
+    encode = {"sub": "testuser", "id": 1, "role":"admin",
+              "exp": datetime.now(timezone.utc) - timedelta(minutes=1)}
+    token = jwt.encode(encode, SECRET_KEY, algorithm=ALGORITHM)
+
+    with pytest.raises(HTTPException) as excinfo:
+        await get_current_user(token)
+    assert  excinfo.value.status_code == 401
+    assert  excinfo.value.detail == "Token Expired"
+
+def test_create_invite_token_length():
+    token = create_invite_token()
+    assert len(token) == 16
+
+def test_hash_invite_token_deterministic():
+    assert hash_invite_token("abc") == hash_invite_token("abc")
+    assert hash_invite_token("abc") != hash_invite_token("abd")
+
+@pytest.mark.asyncio
+async  def test_get_admin_valid():
+    user = {"username": "testuser", "id": 1, "role":"admin"}
+    assert await get_admin(user) == user
+
+@pytest.mark.asyncio
+async  def test_get_admin_not_admin():
+    user = {"username": "testuser", "id": 1, "role":"default"}
+    with pytest.raises(HTTPException) as excinfo:
+        await get_admin(user)
+    assert  excinfo.value.status_code == 403
+    assert  excinfo.value.detail == "Not Authorized"

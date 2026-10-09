@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from pydantic import EmailStr, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
@@ -6,7 +8,7 @@ from sqlalchemy.engine import make_url
 BASE_DIR = Path(__file__).resolve().parents[2]
 ENV_FILE = BASE_DIR / ".env"
 WINDOW_OF_DAYS: int = 365  # Domain rule. EmailNotifier._LOWEST_PRICE_MSG says "último ano": keep both in sync.
-
+INVITE_EXPIRE_DELTA   = timedelta(days=1)
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
 

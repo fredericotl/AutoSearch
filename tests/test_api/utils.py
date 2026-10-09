@@ -4,16 +4,17 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
-from app.core.security import bcrypt_context
+from app.core.security import bcrypt_context, hash_invite_token
 from app.db import Base
 from app.main import app
 from app.services.product_service import create_product
 from app.schemas.product import CreateProduct
 import pytest
 
-from app.models import User, Product, PriceHistory
+from app.models import User, Product, PriceHistory, Invite
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+INVITE_TOKEN = "abcdefghijklmnop"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL,
                        connect_args={"check_same_thread": False},
@@ -39,6 +40,9 @@ def override_get_db():
 def override_get_current_user():
     return {"username": "testuser", "id": 1, "role": "default"}
 
+def override_get_admin():
+    return {"username": "testuser", "id": 1, "role": "admin"}
+
 @pytest.fixture
 def test_user():
     user = User(username="testuser",
@@ -54,6 +58,18 @@ def test_user():
     with engine.connect() as connection:
         connection.execute(text("DELETE FROM users;"))
         connection.commit()
+
+@pytest.fixture
+def test_invite():
+    invite = Invite(token_hash=hash_invite_token(INVITE_TOKEN),
+                    email="testuser@gmail.com",
+                    invited_role="default",
+                    expires_at=now() + timedelta(days=1),
+                    used=False)
+    db = TestingSessionLocal()
+    db.add(invite)
+    db.commit()
+    yield invite
 
 @pytest.fixture
 def test_product(test_user):

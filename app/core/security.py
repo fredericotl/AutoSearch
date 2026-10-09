@@ -1,12 +1,13 @@
+from hashlib import sha256
+from secrets import token_urlsafe
 from datetime import timedelta, datetime, timezone
 from fastapi import Depends,HTTPException
 from typing import Annotated
 from starlette import status
 from passlib.context import  CryptContext
 from fastapi.security import OAuth2PasswordBearer
-from jose import  jwt, JWTError
+from jose import  jwt, JWTError, ExpiredSignatureError
 from app.core.config import settings
-
 
 SECRET_KEY = settings.secret_key
 ALGORITHM = "HS256"
@@ -27,7 +28,12 @@ def create_access_token(username: str, user_id: int, user_role: str ):
     encode["exp"] = expires
     return jwt.encode(encode, SECRET_KEY, algorithm=ALGORITHM)
 
-#TODO diferenciar erro de token expirado
+def create_invite_token():
+    return token_urlsafe(12)
+
+def hash_invite_token(token):
+    return sha256(token.encode()).hexdigest()
+
 async def get_current_user(token: Annotated[str, Depends(oauth2_bearer)]):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -37,6 +43,12 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_bearer)]):
         if username is None or user_id is None:
             raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail= "Authentication Failed")
         return {"username": username, "id": user_id, "role": role}
+    except ExpiredSignatureError:
+        raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail= "Token Expired")
     except JWTError:
         raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail= "Authentication Failed")
 
+async def get_admin(user: Annotated[dict, Depends(get_current_user)]):
+    if user["role"] != "admin": #same as UserRole.ADMIN
+        raise HTTPException(status_code= status.HTTP_403_FORBIDDEN, detail= "Not Authorized")
+    return user

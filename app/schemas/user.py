@@ -1,5 +1,9 @@
 from pydantic import BaseModel, Field, EmailStr, ConfigDict, model_validator
+from enum import Enum
 
+class UserRole(str, Enum):
+    ADMIN = "admin"
+    DEFAULT = "default"
 
 class CreateUser(BaseModel):
     username: str = Field(min_length=3, max_length=20, pattern=r"^[a-zA-Z0-9]+$")
@@ -8,6 +12,7 @@ class CreateUser(BaseModel):
     last_name: str = Field(max_length=100)
     password: str = Field(min_length=8, max_length=100)
     password_confirm: str = Field(min_length=8, max_length=100)
+    token: str = Field(min_length=16, max_length=16)
 
     @model_validator(mode="after")
     def _password_match(self):

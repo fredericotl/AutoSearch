@@ -1,12 +1,13 @@
 from sqlalchemy.orm import Session,selectinload
-from app.models import Product, User
+from app.models import Product
 from app.services.detection_service import remove_detections
+from app.services.user_service import find_user
+from app.services.price_service import price_str, get_prices_by_products, build_price_info, ProductPrices
 from app.schemas import CreateProduct, ProductResponse, WatchedProductsResponse
 from app.core import ProductNotFound, UserNotFollow
-from app.services.price_service import price_str, get_prices_by_products, build_price_info, ProductPrices
 
 def get_watched_products(db: Session, user_id: int):
-    user = db.get(User, user_id)
+    user = find_user(db, user_id)
     return user.watching
 
 def get_all_products(db: Session):
@@ -52,7 +53,7 @@ def get_watched_products_with_prices(db: Session, user_id: int)-> WatchedProduct
 
 #TODO lidar com links repetidos, escolher se associa a um produto já existente ou apenas informa que existe
 def create_product(db: Session, product_request: CreateProduct, user_id: int):
-    owner = db.get(User, user_id)
+    owner = find_user(db, user_id)
     product_model = Product(title=product_request.title,
                             link=str(product_request.link),
                             specification=product_request.specification,
@@ -63,7 +64,7 @@ def create_product(db: Session, product_request: CreateProduct, user_id: int):
 
 #TODO Resolver quem é o novo dono lidar com exceptions
 def remove_product(db:Session, product_model: Product, user_id: int):
-    user = db.get(User, user_id)
+    user = find_user(db, user_id)
     viewers = product_model.viewers
     if user not in viewers:
         raise UserNotFollow("User Do Not Follow Product")

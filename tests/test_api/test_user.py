@@ -37,14 +37,14 @@ def test_change_email_success(test_user):
     assert response.status_code == 204
 
 def test_change_email_fail(test_user):
-    client.post("/auth", json={
-        "username": "testuser2",
-        "email": "testuser2@gmail.com",
-        "first_name": "Test",
-        "last_name": "User",
-        "password": "12345678",
-        "password_confirm": "12345678"
-    })
+    db = TestingSessionLocal()
+    db.add(User(username="testuser2",
+                email="testuser2@gmail.com",
+                first_name="Test",
+                last_name="User",
+                hashed_password=bcrypt_context.hash("12345678"),
+                role="default"))
+    db.commit()
     response = client.put("/user/email", json={
         "new_email": "testuser2@gmail.com",
         "new_email_confirm": "testuser2@gmail.com"

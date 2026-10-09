@@ -4,7 +4,7 @@ import pytest
 from app.models import User
 from app.services import find_user, change_user_password, change_user_email
 from app.schemas import ChangePassword, ChangeEmail
-from app.core import is_password_equal, hash_password, WrongPassword
+from app.core import is_password_equal, hash_password, WrongPassword, UserNotFound
 
 def mock_db_session():
     mock_session = MagicMock(spec=Session)
@@ -24,13 +24,20 @@ def mock_user():
 def test_find_user():
     db = mock_db_session()
     mock_user_instance = mock_user()
-    db.query.return_value.filter.return_value.first.return_value = mock_user_instance
+    db.get.return_value = mock_user_instance
     assert find_user(db, 1) == mock_user_instance
+
+def test_find_user_not_found():
+    db = mock_db_session()
+    db.get.return_value = None
+    with pytest.raises(UserNotFound) as exinfo:
+        find_user(db, 1)
+    assert str(exinfo.value) == "User Not Found"
 
 def test_change_user_password_success():
     db = mock_db_session()
     mock_user_instance = mock_user()
-    db.query.return_value.filter.return_value.first.return_value = mock_user_instance
+    db.get.return_value = mock_user_instance
 
     change_password_request = ChangePassword(old_password="password123",
                                              new_password="newpassword",
@@ -42,7 +49,7 @@ def test_change_user_password_success():
 def test_change_user_password_wrong_old_password():
     db = mock_db_session()
     mock_user_instance = mock_user()
-    db.query.return_value.filter.return_value.first.return_value = mock_user_instance
+    db.get.return_value = mock_user_instance
 
     change_password_request = ChangePassword(old_password="wrongpassword",
                                              new_password="newpassword",
@@ -53,7 +60,7 @@ def test_change_user_password_wrong_old_password():
 def test_change_user_email_success():
     db = mock_db_session()
     mock_user_instance = mock_user()
-    db.query.return_value.filter.return_value.first.return_value = mock_user_instance
+    db.get.return_value = mock_user_instance
 
     change_email_request = ChangeEmail(new_email="newemail@example.com",
                                        new_email_confirm="newemail@example.com")

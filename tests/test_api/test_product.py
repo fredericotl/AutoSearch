@@ -53,6 +53,11 @@ def test_read_product_with_nulls(test_user, test_price_history):
     assert data["mean"] == "R$ 9,00"
     assert response.status_code == 200
 
+def test_read_all_products_user_not_found():
+    response = client.get("/products/")
+    assert response.status_code == 401
+    assert response.json()["detail"] == "User Not Found"
+
 def test_read_product_not_found(test_user):
     response = client.get("/products/999")
     assert response.status_code == 404
