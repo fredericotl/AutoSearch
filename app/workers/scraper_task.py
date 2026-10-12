@@ -1,10 +1,9 @@
-from app.services import (get_all_products, save_product_price_scheduler, save_error,create_detections, PriceWindow)
+from app.services import (get_all_products, save_product_price_scheduler, save_error,create_detections, PriceWindow,
+                          has_open_error)
 from app.db import SessionLocal
 from app.schemas import CreateError, DetectedProduct, ProductToScrape, ErrorSource
 from time import sleep
-from app.core import (ScraperFail, UnsupportedScraper, PriceNotFound, ScraperBlocked,
-                                 ScraperUnavailable, ProductGone)
-from sqlalchemy.orm import Session
+from app.core import ScraperFail
 import logging
 from time import perf_counter
 import random
@@ -22,14 +21,13 @@ class ScraperTask:
         finally:
             db.close()
 
-    def _save_error(self, db: Session, error: ScraperFail, product: ProductToScrape ):
-        error_data = CreateError(
+    def _build_error(self, error: Exception, product: ProductToScrape) -> CreateError:
+        return CreateError(
             product_id=product.id,
             error_type=type(error).__name__,
             source=ErrorSource.SCRAPER,
             message=str(error),
         )
-        save_error(db, error_data)
 
 
     def run(self):
@@ -58,15 +56,18 @@ class ScraperTask:
                     create_detections(db, product_to_notify)
                     db.commit()
                 outcome = "ok"
-            # TODO identificar site para não repetir mesmo erro
-            except (ScraperUnavailable, ProductGone, UnsupportedScraper, ScraperBlocked, PriceNotFound) as e:
-                self._save_error(db, e,product)
+            except ScraperFail as e:
+                save_error(db, self._build_error(e, product))
                 db.commit()
                 outcome = type(e).__name__
                 failed += 1
-            except ScraperFail as e:
-                self._save_error(db, e,product)
-                db.commit()
+            except Exception as e:
+                logger.exception("product %s: unexpected error", product.id)
+                db.rollback()
+                error_data = self._build_error(e, product)
+                if not has_open_error(db, error_data):
+                    save_error(db, error_data)
+                    db.commit()
                 outcome = type(e).__name__
                 failed += 1
             finally:
