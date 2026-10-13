@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
+from datetime import timedelta
+
 from bs4 import BeautifulSoup
-from app.core import ScraperUnavailable, ProductGone, ScraperBlocked
+from app.core import ScraperUnavailable, ProductGone, ScraperBlocked, now
 import requests
 
 class Scraper(ABC):
@@ -13,11 +15,15 @@ class Scraper(ABC):
               "sec-fetch-mode": "navigate","sec-fetch-site": "none","sec-fetch-user": "?1",
               }
     TIMEOUT = 10
-
+    BLOCKED_HOURS = 23
     def __init__(self):
         self.session = requests.Session()
+        self.blocked_until = None
         self._warm_up(self.session)
+
     def get_soup(self, url):
+        if self.blocked_until and self.blocked_until > now():
+            raise ScraperBlocked(f"Request skipped, blocked until {self.blocked_until}; URL: {url}")
         try:
             response = self.session.get(url, headers=self.HEADER, timeout=self.TIMEOUT)
         except requests.exceptions.RequestException as e:
@@ -26,12 +32,13 @@ class Scraper(ABC):
         if status == 404: #Pagina não existe mais
             raise ProductGone(f"Status {status}; URL: {url}")
         if status in (403, 503): #Trava de acesso antibot
-            # TODO lidar com trava
+            self.blocked_until = now() + timedelta(hours=self.BLOCKED_HOURS)
             raise ScraperBlocked(f"Status {status}; URL: {url}")
         if not response.ok: # Qualquer outro erro
             raise ScraperUnavailable(f"Status {status}; URL: {url}")
         soup = BeautifulSoup(response.text, "html.parser")
         if self._is_blocked(soup):
+            self.blocked_until = now() + timedelta(hours=self.BLOCKED_HOURS)
             raise ScraperBlocked(f"Blocked by content check; URL: {url}")
         return soup
 
