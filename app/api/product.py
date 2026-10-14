@@ -7,7 +7,7 @@ from app.db import get_db
 from app.schemas import (CreateProduct, CreateProductResponse,
                          ProductResponse, ProductPriceResponse, ProductToScrape, WatchedProductsResponse)
 from app.services import (get_product, get_watched_products_with_prices, get_product_with_prices,
-                          create_product, remove_product, save_product_price_api)
+                          create_product, unfollow_product_service, save_product_price_api)
 router = APIRouter(prefix="/products", tags=["Products"])
 
 db_dependency = Annotated[Session, Depends(get_db)]
@@ -37,13 +37,13 @@ async  def create_new_product(user: user_dependency, db: db_dependency, product_
     db.commit()
     return product
 
-##TODO pensar em uma forma de fazer update sendo o owner e se faz sentido uma vez que existem folowers
-#TODO usar ou não REST Delete
-@router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
+##TODO Pensar em formas de fazer update do produto se é coerente talvez no processo de validação
+
+@router.post("/{product_id}/unfollow", status_code=status.HTTP_204_NO_CONTENT)
 async def unfollow_product(user: user_dependency, db: db_dependency, product_id : int =Path(gt=0)):
     try:
         product_model = get_product(db,product_id)
-        remove_product(db, product_model, user.get("id"))
+        unfollow_product_service(db, product_model, user.get("id"))
         db.commit()
     except ProductNotFound as e:
         raise HTTPException(404, str(e))

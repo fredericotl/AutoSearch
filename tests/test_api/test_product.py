@@ -75,11 +75,17 @@ def test_read_product_two_prices_same_day(test_user, test_price_history):
     assert response.status_code == 200
 
 def test_unfollow_product(test_user, test_product):
-    response = client.delete(f"/products/{test_product.id}")
+    response = client.post(f"/products/{test_product.id}/unfollow")
     assert response.status_code == 204
 
-    response = client.delete(f"/products/{test_product.id}")
-    assert response.status_code == 404
+    db = TestingSessionLocal()
+    product = db.get(Product, test_product.id)
+    assert product is not None
+    assert product.is_search_active is False
+    assert product.viewers == []
+
+    response = client.post(f"/products/{test_product.id}/unfollow")
+    assert response.status_code == 400
 
 def test_lowest_price_never_above_today(test_user, test_price_history):
     product = test_price_history([700, 900, 800])

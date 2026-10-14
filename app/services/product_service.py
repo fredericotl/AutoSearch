@@ -62,20 +62,21 @@ def create_product(db: Session, product_request: CreateProduct, user_id: int):
     db.add(product_model)
     return product_model
 
-#TODO Resolver quem é o novo dono lidar com exceptions
-def remove_product(db:Session, product_model: Product, user_id: int):
+def unfollow_product_service(db:Session, product_model: Product, user_id: int):
     user = find_user(db, user_id)
     viewers = product_model.viewers
     if user not in viewers:
         raise UserNotFollow("User Do Not Follow Product")
-    if len(viewers) == 1:
-        remove_detections(db, product_model.id)
-        db.delete(product_model)
+    product_model.viewers.remove(user)
+    if len(viewers) == 0:
+        product_model.is_search_active = False
     else:
-        product_model.viewers.remove(user)
         if product_model.owner_id == user_id:
             product_model.owner_id = None
 
+def delete_product(db:Session, product_model: Product):
+    remove_detections(db, product_model.id)
+    db.delete(product_model)
 
 
 

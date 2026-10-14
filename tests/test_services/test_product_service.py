@@ -1,5 +1,5 @@
-from app.services.product_service import (get_watched_products, get_all_products, get_product,create_product,
-                                          remove_product, _get_product_response)
+from app.services.product_service import (get_watched_products, get_all_products, get_product, create_product,
+                                          unfollow_product_service, _get_product_response, delete_product)
 from app.services.price_service import ProductPrices
 from sqlalchemy.orm import Session
 from unittest.mock import MagicMock, patch
@@ -112,7 +112,7 @@ def test_create_product_success():
     assert result is MockProduct.return_value
     db.add.assert_called_once_with(result)
 
-def test_remove_product_user_not_follower():
+def test_unfollow_product_user_not_follower():
     db = mock_db_session()
     product = mock_product()
     user = mock_user(1)
@@ -121,38 +121,32 @@ def test_remove_product_user_not_follower():
     product.viewers = [other_user]
 
     with patch('app.services.product_service.find_user', return_value=user), pytest.raises(UserNotFollow):
-        remove_product(db, product, 1)
+        unfollow_product_service(db, product, 1)
 
-def test_remove_product_last_viewer_deletes():
+
+def test_unfollow_last_viewer_deactivates():
     db = mock_db_session()
     product = mock_product()
     user = mock_user(1)
 
     product.viewers = [user]
-    product.id = 1
 
-    with patch('app.services.product_service.find_user', return_value=user), \
-            patch('app.services.product_service.remove_detections') as mock_remove_det:
-        remove_product(db, product, 1)
-        mock_remove_det.assert_called_once_with(db, 1)
-        db.delete.assert_called_once_with(product)
+    with patch('app.services.product_service.find_user', return_value=user):
+        unfollow_product_service(db, product, 1)
 
-
-def test_remove_product_multiple_viewers_removes_user():
-    db = mock_db_session()
-    product = mock_product()
-    user1 = mock_user(1)
-    user2 = mock_user(2)
-
-    product.viewers = [user1, user2]
-    product.owner_id = 1
-
-    with patch('app.services.product_service.find_user', return_value=user1):
-        remove_product(db, product, 1)
-
-    assert user1 not in product.viewers
+    assert product.is_search_active is False
+    assert product.viewers == []
     db.delete.assert_not_called()
 
+def test_delete_product_removes_detections_and_product():
+    db = mock_db_session()
+    product = mock_product()
+
+    with patch('app.services.product_service.remove_detections') as mock_remove_det:
+        delete_product(db, product)
+
+    mock_remove_det.assert_called_once_with(db, 1)
+    db.delete.assert_called_once_with(product)
 
 def test_remove_product_user_is_owner():
     db = mock_db_session()
@@ -165,8 +159,9 @@ def test_remove_product_user_is_owner():
     product.owner_id = 1
 
     with patch('app.services.product_service.find_user', return_value=user1):
-        remove_product(db, product, 1)
+        unfollow_product_service(db, product, 1)
 
     assert product.owner_id is None
     assert user1 not in product.viewers
+    assert product.is_search_active is True
     db.delete.assert_not_called()
