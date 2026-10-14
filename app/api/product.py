@@ -52,8 +52,6 @@ async def follow_product(user: user_dependency, db: db_dependency, product_id : 
     except UserNotFound as e:
         raise HTTPException(status_code=401, detail=str(e))
 
-##TODO Pensar em formas de fazer update do produto se é coerente talvez no processo de validação
-
 @router.post("/{product_id}/unfollow", status_code=status.HTTP_204_NO_CONTENT)
 async def unfollow_product(user: user_dependency, db: db_dependency, product_id : int =Path(gt=0)):
     try:
