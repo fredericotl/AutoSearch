@@ -1,11 +1,12 @@
 from app.services.product_service import (get_watched_products, get_all_products, get_product, create_product,
-                                          unfollow_product_service, _get_product_response, delete_product)
+                                          unfollow_product_service, _get_product_response, delete_product,
+                                          follow_product_service)
 from app.services.price_service import ProductPrices
 from sqlalchemy.orm import Session
 from unittest.mock import MagicMock, patch
 from app.models import Product, User
 from app.schemas import CreateProduct
-from app.core import ProductNotFound, UserNotFollow
+from app.core import ProductNotFound, UserNotFollow, ProductAlreadyExists, UserAlreadyFollow
 import pytest
 
 def mock_db_session():
@@ -101,7 +102,8 @@ def test_create_product_success():
     owner = mock_user(1)
 
     with patch('app.services.product_service.Product') as MockProduct, \
-         patch('app.services.product_service.find_user', return_value=owner):
+         patch('app.services.product_service.find_user', return_value=owner), \
+         patch('app.services.product_service.get_product_by_link', return_value=None):
         result = create_product(db, product_request, 1)
 
     MockProduct.assert_called_once_with(title="New Product",
@@ -112,6 +114,48 @@ def test_create_product_success():
     assert result is MockProduct.return_value
     db.add.assert_called_once_with(result)
 
+def test_create_product_link_already_exists():
+    db = mock_db_session()
+    product_request = CreateProduct(
+        title="New Product",
+        link="http://example.com/product/1",
+        specification="New Specification"
+    )
+    existing = mock_product()
+
+    with patch('app.services.product_service.get_product_by_link', return_value=existing), \
+         pytest.raises(ProductAlreadyExists, match="id 1"):
+        create_product(db, product_request, 1)
+
+    db.add.assert_not_called()
+
+def test_follow_product_reactivates():
+    db = mock_db_session()
+    product = mock_product()
+    user = mock_user(1)
+
+    product.viewers = []
+    product.is_search_active = False
+
+    with patch('app.services.product_service.get_product', return_value=product), \
+         patch('app.services.product_service.find_user', return_value=user):
+        follow_product_service(db, product.id, 1)
+
+    assert user in product.viewers
+    assert product.is_search_active is True
+
+def test_follow_product_already_follows():
+    db = mock_db_session()
+    product = mock_product()
+    user = mock_user(1)
+
+    product.viewers = [user]
+
+    with patch('app.services.product_service.get_product', return_value=product), \
+         patch('app.services.product_service.find_user', return_value=user), \
+         pytest.raises(UserAlreadyFollow):
+        follow_product_service(db, product.id, 1)
+
 def test_unfollow_product_user_not_follower():
     db = mock_db_session()
     product = mock_product()
@@ -120,9 +164,10 @@ def test_unfollow_product_user_not_follower():
 
     product.viewers = [other_user]
 
-    with patch('app.services.product_service.find_user', return_value=user), pytest.raises(UserNotFollow):
-        unfollow_product_service(db, product, 1)
-
+    with patch('app.services.product_service.get_product', return_value=product), \
+         patch('app.services.product_service.find_user', return_value=user), \
+         pytest.raises(UserNotFollow):
+        unfollow_product_service(db, product.id, 1)
 
 def test_unfollow_last_viewer_deactivates():
     db = mock_db_session()
@@ -131,8 +176,9 @@ def test_unfollow_last_viewer_deactivates():
 
     product.viewers = [user]
 
-    with patch('app.services.product_service.find_user', return_value=user):
-        unfollow_product_service(db, product, 1)
+    with patch('app.services.product_service.get_product', return_value=product), \
+         patch('app.services.product_service.find_user', return_value=user):
+        unfollow_product_service(db, product.id, 1)
 
     assert product.is_search_active is False
     assert product.viewers == []
@@ -158,8 +204,9 @@ def test_remove_product_user_is_owner():
     product.viewers = [user1, user2]
     product.owner_id = 1
 
-    with patch('app.services.product_service.find_user', return_value=user1):
-        unfollow_product_service(db, product, 1)
+    with patch('app.services.product_service.get_product', return_value=product), \
+         patch('app.services.product_service.find_user', return_value=user1):
+        unfollow_product_service(db, product.id, 1)
 
     assert product.owner_id is None
     assert user1 not in product.viewers

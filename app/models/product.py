@@ -10,7 +10,7 @@ class Product(Base):
 
     id = Column(Integer, primary_key=True)
     title = Column(String,nullable=False)
-    link = Column(String, nullable=False)
+    link = Column(String, nullable=False,unique=True)
     specification = Column(String, nullable=True)
     owner_id = Column(Integer, ForeignKey("users.id", ondelete= "SET NULL"), nullable=True)
     is_search_active = Column(Boolean, default=True)

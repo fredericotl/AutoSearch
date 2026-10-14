@@ -109,3 +109,33 @@ def test_price_outside_window_ignored(test_user, test_price_history):
     data = client.get(f"/products/{product.id}").json()
     assert data["lowest_price"] == "R$ 9,00"
     assert data["mean"] == "R$ 9,50"
+
+def test_create_product_duplicate_link(test_user, test_product):
+    response = client.post("/products/", json={
+        "title": "Another Title",
+        "specification": "Other spec.",
+        "link": "http://example.com/test-product"
+    })
+    assert response.status_code == 409
+    assert f"id {test_product.id}" in response.json()["detail"]
+
+def test_follow_after_unfollow_reactivates(test_user, test_product):
+    response = client.post(f"/products/{test_product.id}/unfollow")
+    assert response.status_code == 204
+
+    response = client.post(f"/products/{test_product.id}/follow")
+    assert response.status_code == 204
+
+    db = TestingSessionLocal()
+    product = db.get(Product, test_product.id)
+    assert product.is_search_active is True
+
+    listed = client.get("/products/").json()["products"]
+    assert [p["id"] for p in listed] == [test_product.id]
+
+    response = client.post(f"/products/{test_product.id}/follow")
+    assert response.status_code == 400
+
+def test_follow_product_not_found(test_user):
+    response = client.post("/products/999/follow")
+    assert response.status_code == 404

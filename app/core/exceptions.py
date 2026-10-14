@@ -2,6 +2,11 @@ class ProductNotFound(Exception):
     """Product ID does not exist"""
     pass
 
+
+class ProductAlreadyExists(Exception):
+    """Product already exists"""
+    pass
+
 class ScraperFail(Exception):
     """Scraper Fail"""
     pass
@@ -32,6 +37,10 @@ class UserNotFound(Exception):
 
 class UserNotFollow(Exception):
     """User does not follow the product"""
+    pass
+
+class UserAlreadyFollow(Exception):
+    """User already follow the product"""
     pass
 
 class WrongPassword(Exception):
@@ -65,4 +74,4 @@ class InvalidInvite(Exception):
 __all__ = ["ProductNotFound", "ScraperFail", "ScraperUnavailable", "ProductGone",
            "ScraperBlocked", "PriceNotFound", "UnsupportedScraper", "UserNotFound","UserNotFollow",
            "WrongPassword", "NotifierFail", "SenderNotAuthenticated", "NotifierUnreachable", "RecipientRefused",
-           "EmptyNotification", "InvalidInvite"]
+           "EmptyNotification", "InvalidInvite", "ProductAlreadyExists", "UserAlreadyFollow"]

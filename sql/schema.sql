@@ -26,7 +26,7 @@ CREATE TABLE invites (
 CREATE TABLE products (
 	id SERIAL,
 	title TEXT NOT NULL,
-	link TEXT NOT NULL,
+	link TEXT NOT NULL UNIQUE,
 	specification TEXT,
 	owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
 	is_search_active BOOLEAN,

@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session,selectinload
+from app.core.exceptions import ProductAlreadyExists, UserAlreadyFollow
 from app.models import Product
 from app.services.detection_service import remove_detections
 from app.services.user_service import find_user
@@ -12,6 +13,10 @@ def get_watched_products(db: Session, user_id: int):
 
 def get_all_products(db: Session):
     return db.query(Product).options(selectinload(Product.viewers)).where(Product.is_search_active == True).all()
+
+def get_product_by_link(db: Session, link: str)-> Product|None:
+    product = db.query(Product).filter(Product.link == link).first()
+    return product
 
 def get_product(db: Session, product_id: int)-> Product:
     product = db.get(Product, product_id)
@@ -51,8 +56,10 @@ def get_watched_products_with_prices(db: Session, user_id: int)-> WatchedProduct
         products_list.append(product_response)
     return WatchedProductsResponse(products=products_list)
 
-#TODO lidar com links repetidos, escolher se associa a um produto já existente ou apenas informa que existe
 def create_product(db: Session, product_request: CreateProduct, user_id: int):
+    db_product = get_product_by_link(db, str(product_request.link))
+    if db_product:
+        raise ProductAlreadyExists(f"Product already exists, follow the product with id {db_product.id}")
     owner = find_user(db, user_id)
     product_model = Product(title=product_request.title,
                             link=str(product_request.link),
@@ -62,17 +69,29 @@ def create_product(db: Session, product_request: CreateProduct, user_id: int):
     db.add(product_model)
     return product_model
 
-def unfollow_product_service(db:Session, product_model: Product, user_id: int):
+def follow_product_service(db:Session, product_id: int, user_id: int):
+    product_model = get_product(db, product_id)
     user = find_user(db, user_id)
     viewers = product_model.viewers
+    if user in viewers:
+        raise UserAlreadyFollow("User Already Follow Product")
+    product_model.is_search_active = True
+    product_model.viewers.append(user)
+    db.add(product_model)
+
+
+def unfollow_product_service(db:Session, product_id: int, user_id: int):
+    product = get_product(db, product_id)
+    user = find_user(db, user_id)
+    viewers = product.viewers
     if user not in viewers:
         raise UserNotFollow("User Do Not Follow Product")
-    product_model.viewers.remove(user)
+    product.viewers.remove(user)
     if len(viewers) == 0:
-        product_model.is_search_active = False
+        product.is_search_active = False
     else:
-        if product_model.owner_id == user_id:
-            product_model.owner_id = None
+        if product.owner_id == user_id:
+            product.owner_id = None
 
 def delete_product(db:Session, product_model: Product):
     remove_detections(db, product_model.id)
