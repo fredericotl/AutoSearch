@@ -18,6 +18,11 @@ def _is_detection_pertinent(price_today: int, last_notification):
         return True
     return False
 
+def _get_pendent_detections(db: Session, product: DetectedProduct, user_id: int):
+    return db.query(Detection).filter(Detection.product_id == product.id,
+                                      Detection.user_id == user_id,
+                                     Detection.sent_at.is_(None)).first()
+
 def create_detections(db: Session, product: DetectedProduct):
 
     position = func.row_number().over(partition_by=Detection.user_id, order_by=(Detection.sent_at.desc(), Detection.id.desc())).label("position")
@@ -27,6 +32,12 @@ def create_detections(db: Session, product: DetectedProduct):
     by_position = db.execute(select(by_product).where(by_product.c.position == 1)).all()
     by_user = {row.user_id: row for row in by_position}
     for viewer in product.viewers:
+        pendent_detection = _get_pendent_detections(db, product, viewer.id)
+        if pendent_detection:
+            pendent_detection.price = product.price
+            pendent_detection.criteria = product.criteria
+            pendent_detection.detected_at = now()
+            continue
         last_notification = by_user.get(viewer.id)
         if not _is_detection_pertinent(price_today=product.price, last_notification=last_notification):
             continue
@@ -36,7 +47,6 @@ def create_detections(db: Session, product: DetectedProduct):
                                     price=product.price,
                                     )
         db.add(detection_model)
-
 
 def get_pendent_detections_by_user(db: Session)-> list[NotifierInput]:
     detections = (db.query(Detection.id, Detection.user_id, Detection.price, Detection.criteria,
@@ -68,3 +78,8 @@ def mark_detections_sent(db:Session, list_detections: list[DetectionNotifyByUser
 
 def remove_detections(db:Session, product_id: int):
     db.query(Detection).filter(Detection.product_id == product_id).delete()
+
+def discard_outdated_pendent_detections(db: Session, product_id: int, price_today: int):
+    db.query(Detection).filter(Detection.product_id == product_id,
+                               Detection.sent_at.is_(None),
+                               Detection.price < price_today).delete()

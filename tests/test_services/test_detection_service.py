@@ -43,9 +43,25 @@ def test_is_detection_pertinent():
 
 def test_create_detections():
     db = mock_db_session()
+    db.query.return_value.filter.return_value.first.return_value = None
     product = mock_detection_product()
     create_detections(db, product)
     assert db.add.call_count == len(product.viewers)
+
+
+def test_create_detections_updates_pendent():
+    db = mock_db_session()
+    pendent = MagicMock()
+    pendent.price = 9999
+    pendent.criteria = None
+    pendent.detected_at = None
+    db.query.return_value.filter.return_value.first.return_value = pendent
+    product = mock_detection_product()
+    create_detections(db, product)
+    assert db.add.call_count == 0
+    assert pendent.price == product.price
+    assert pendent.criteria == product.criteria
+    assert pendent.detected_at.date() == now().date()
 
 def test_get_pendent_detections_by_user_one_item():
     db = mock_db_session()

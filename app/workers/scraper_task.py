@@ -1,5 +1,5 @@
-from app.services import (get_all_products, save_product_price_scheduler, save_error,create_detections, PriceWindow,
-                          has_open_error)
+from app.services import (get_all_products, save_product_price_scheduler, save_error, create_detections, PriceWindow,
+                          has_open_error, discard_outdated_pendent_detections)
 from app.db import SessionLocal
 from app.schemas import CreateError, DetectedProduct, ProductToScrape, ErrorSource
 from time import sleep
@@ -42,6 +42,7 @@ class ScraperTask:
             try:
                 window = PriceWindow.from_history(db, product.id)
                 price_today = save_product_price_scheduler(db, product)
+                discard_outdated_pendent_detections(db, product.id, price_today)
                 db.commit()
                 criteria = window.evaluate_price_criteria(price_today)
                 if criteria is not None:

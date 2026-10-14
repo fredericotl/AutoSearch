@@ -42,7 +42,7 @@ class PriceWindow:
             minimum, prices_sum, standard_deviation = min(prices), sum(prices), stdev(prices)
         return cls( minimum=minimum,count=count, prices_sum=prices_sum, standard_deviation=standard_deviation)
 
-    # TODO Add outros critérios
+    # Precedence: LOWEST_PRICE > LOWER_BOUND
     def evaluate_price_criteria(self, price_today: int) -> Criteria | None:
         if self.count < self.MINIMUM_DATA_COUNT:
             return None
